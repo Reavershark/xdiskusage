@@ -125,6 +125,9 @@ void copyright_cb(Fl_Button*, void*) {
     copyright_window = new Fl_Window(400,270,"Copyright");
     copyright_window->color(FL_WHITE);
     Fl_Box *b = new Fl_Box(10,0,380,270,copyright);
+#ifdef FL_NORMAL_SIZE
+    b->labelsize(12);
+#endif
     b->align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE|FL_ALIGN_WRAP);
     copyright_window->end();
   }
@@ -188,7 +191,9 @@ int arg_cb(int, char **argv, int &i) {
 
 int main(int argc, char**argv) {
   // Make fltk look more like KDE/Windoze:
+#ifndef FL_NORMAL_SIZE // detect new versions of fltk where this is a variable
   FL_NORMAL_SIZE = 12;
+#endif
   Fl::set_color(FL_SELECTION_COLOR,0,0,128);
   // Parse and -x switches understood by fltk:
   int n; Fl::args(argc,argv,n, arg_cb);
