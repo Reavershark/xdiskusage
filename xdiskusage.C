@@ -20,15 +20,19 @@ const char* copyright =
 "Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 "
 "USA.";
 
-#if defined(__bsdi__)
-#define DF_COMMAND "df"
-#define DU_COMMAND "du -x"
+
+#if defined(__hpux)
+# define DF_COMMAND "df -P"
+# define DU_COMMAND "du -kx"
+#elif defined(__bsdi__)
+# define DF_COMMAND "df"
+# define DU_COMMAND "du -x"
 #elif defined(SVR4)
-#define DF_COMMAND "df -k"
-#define DU_COMMAND "du -kd"
-#else
-#define DF_COMMAND "df -k"
-#define DU_COMMAND "du -kx"
+# define DF_COMMAND "df -k"
+# define DU_COMMAND "du -kd"
+#else // linux and irix
+# define DF_COMMAND "df -k"
+# define DU_COMMAND "du -kx"
 #endif
 
 #include <stdio.h>
