@@ -5,9 +5,8 @@ VERSION = 1.46
 
 CXXFILES = panels.C xdiskusage.C
 
-#LIBS = -lfltk
 # You may need this to link with a shared version of fltk:
-LIBS = -lfltk -lXinerama -lGL -lGLU
+LIBS =
 
 MANPAGE = 1
 
@@ -18,7 +17,7 @@ OBJECTS = $(CXXFILES:.C=.o)
 all:	$(PROGRAM)
 
 $(PROGRAM) : $(OBJECTS)
-	$(CXX) $(CXXFLAGS) -o $(PROGRAM) $(OBJECTS) $(LIBS) $(LDLIBS)
+	$(CXX) $(LDFLAGS) -o $(PROGRAM) $(OBJECTS) $(LIBS) $(LDLIBS)
 
 makeinclude: configure
 	./configure
@@ -74,4 +73,4 @@ OBJECTS_D = $(CXXFILES:.C=.do) $(CFILES:.c=.do)
 	$(CC) $(CFLAGS_D) -c -o $@ $<
 
 $(PROGRAM_D) : $(OBJECTS_D)
-	$(CXX) $(CXXFLAGS_D) -o $(PROGRAM_D) $(OBJECTS_D) $(LIBS) $(LDLIBS)
+	$(CXX) $(LDFLAGS_D) -o $(PROGRAM_D) $(OBJECTS_D) $(LIBS) $(LDLIBS)

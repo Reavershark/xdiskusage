@@ -21,6 +21,6 @@ CXXFLAGS	=@CXXFLAGS@
 CXXFLAGS_D	=@CXXFLAGS_D@
 
 # libraries to link with:
-LDLIBS	=@LIBS@ -lX11 -lXext @X_EXTRA_LIBS@ -lm
+LDLIBS	=@LIBS@ -lfltk -lXinerama -lGL -lGLU -lX11 -lXext @X_EXTRA_LIBS@ -lm
 
 INSTALL	=@INSTALL@
