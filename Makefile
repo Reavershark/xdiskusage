@@ -26,9 +26,9 @@ include makeinclude
 .SUFFIXES : .fl .do .C .c .H
 
 .C.o :
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 .C :
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 .fl.C :
 	-fluid -c $<
 .fl.H :
@@ -39,13 +39,15 @@ clean :
 	@touch makedepend
 
 depend:
-	$(MAKEDEPEND) -I.. $(CXXFLAGS) $(CXXFILES) $(CFILES) > makedepend
+	$(MAKEDEPEND) -I.. $(CPPFLAGS) $(CXXFILES) $(CFILES) > makedepend
 makedepend:
 	touch makedepend
 include makedepend
 
 install: $(PROGRAM)
+	-@mkdir -p $(bindir)
 	$(INSTALL) -s $(PROGRAM) $(bindir)/$(PROGRAM)
+	-@mkdir -p $(mandir)/man$(MANPAGE)
 	$(INSTALL) $(PROGRAM).$(MANPAGE) $(mandir)/man$(MANPAGE)/$(PROGRAM).$(MANPAGE)
 
 uninstall:
@@ -68,7 +70,7 @@ debug: $(PROGRAM_D)
 OBJECTS_D = $(CXXFILES:.C=.do) $(CFILES:.c=.do)
 
 .C.do :
-	$(CXX) $(CXXFLAGS_D) -c -o $@ $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS_D) -c -o $@ $<
 .c.do :
 	$(CC) $(CFLAGS_D) -c -o $@ $<
 

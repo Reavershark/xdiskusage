@@ -20,8 +20,9 @@ const char* copyright =
 "Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 "
 "USA.";
 
-
-#if defined(__hpux)
+#if defined(DF_COMMAND)
+// assumme DU_COMMAND is also defined
+#elif defined(__hpux)
 # define DF_COMMAND "df -P"
 # define DU_COMMAND "du -kx"
 #elif defined(__bsdi__)
@@ -55,7 +56,8 @@ typedef unsigned long ulong;
 // turn number of K into user-friendly text:
 const char* formatk(ulong k) {
   static char buffer[10];
-  if (k >= 1024*1024) sprintf(buffer,"%.4gG",(double)k/(1024*1024));
+  if (k >= 1024*1024*1024) sprintf(buffer,"%.4gT",(double)k/(1024*1024*1024));
+  else if (k >= 1024*1024) sprintf(buffer,"%.4gG",(double)k/(1024*1024));
   else if (k >= 1024) sprintf(buffer,"%.4gM",(double)k/1024);
   else sprintf(buffer,"%ldK",k);
   return buffer;
@@ -119,13 +121,19 @@ void reload_cb(Fl_Button*, void*) {
     int pct;
     ulong sum = d->used + d->avail;
     if (!sum) {
-      pct = 0;
+      pct = 100;
     } else {
-      pct = int((d->used*100+d->used/2)/sum);
+      pct = int((d->used*100.0)/sum+.5);
       if (!pct && d->used) pct = 1;
     }
 #if FL_MAJOR_VERSION > 1
-    sprintf(buf, "@b;%s\t@n;%s %2d%% full", d->mount, formatk(d->total), pct);
+    static const char* labels[] = {"mounted at", "size", "usage", 0};
+    static int widths[] = {-1, 50, 50, 0};
+    if (d==firstdisk) {
+      disk_browser->column_widths(widths);
+      disk_browser->column_labels(labels);
+    }
+    sprintf(buf, "@b;%s\t@n@r;%s\t@r;%2d%% \t", d->mount, formatk(d->total), pct);
 #else
     sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
 #endif
@@ -392,8 +400,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
       strncpy(pathbuf, path, 1024);
       for (int i=0; i<10; i++) {
 	char *p = (char*)fl_filename_name(pathbuf);
-	int i = readlink(pathbuf, p, 1024-(p-pathbuf));
-	if (i < 0) {
+	int j = readlink(pathbuf, p, 1024-(p-pathbuf));
+	if (j < 0) {
 	  if (errno != EINVAL) {
 	    strcat(pathbuf, ": no such file");
 	    fl_alert(pathbuf);
@@ -401,8 +409,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 	  }
 	  break;
 	}
-	if (*p == '/') {memmove(pathbuf, p, i); p = pathbuf;}
-	p[i] = 0;
+	if (*p == '/') {memmove(pathbuf, p, j); p = pathbuf;}
+	p[j] = 0;
 	path = pathbuf;
       }
     }
