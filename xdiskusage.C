@@ -261,7 +261,8 @@ int main(int argc, char**argv) {
       OutputWindow* d = OutputWindow::make(argv[n++]);
       if (d) d->show(argc,argv);
     }
-  } else if (!isatty(0)) {
+  } else if (!isatty(0) && (n=getc(stdin))>=0) {
+    ungetc(n,stdin);
     // test for pipe, if so read stdin:
     OutputWindow* d = OutputWindow::make(0);
     if (d) d->show(argc,argv);
@@ -493,14 +494,22 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     }
 
     // FIXME: don't limit line length to 1024
-    if (!fgets(buffer, 1024, f)) break;
+    if (!fgets(buffer, 1024, f)) {
+      if (!runningtotal) {
+	fl_alert("%s: empty or bad file", path ? path : "stdin", line_no);
+	cancelled = 1;
+	continue;
+      }
+      break;
+    }
 
     // If the line was longer than the maximum, warn about it,
     // and discard the rest of the line.
     size_t len = strlen (buffer);
     if (buffer[len-1] != '\n')
       {
-	fprintf (stderr, "%s:%d: line too long, skipping it\n", path, line_no);
+	fprintf (stderr, "%s:%d: line too long, skipping it\n",
+		 path ? path : "stdin", line_no);
 	// Read until end of line or EOF.
 	while (1)
 	  {
@@ -518,7 +527,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     ulong size = strtoul(buffer, &p, 10);
     if (!isspace(*p) || p == buffer) {
       if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
-      fl_alert("%s:%d: does not look like du output: %s", path, line_no, p);
+      fl_alert("%s:%d: does not look like du output: %s",
+	       path ? path : "stdin", line_no, p);
       cancelled = 1;
       continue;
     }
