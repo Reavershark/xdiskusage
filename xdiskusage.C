@@ -1,7 +1,7 @@
 // xdiskusage.C
 
 const char* copyright = 
-"xdiskusage version 1.41\n"
+"xdiskusage version 1.43\n"
 "Copyright (C) 2000 Bill Spitzak    spitzak@d2.com\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
@@ -112,9 +112,11 @@ void reload_cb(Fl_Button*, void*) {
   for (Disk* d = firstdisk; d; d = d->next) {
     char buf[512];
     int pct;
-    if (!(d->used + d->avail)) pct = 0;
-    else {
-      pct = int((d->used*100+d->used/2)/(d->used+d->avail));
+    ulong sum = d->used + d->avail;
+    if (!sum) {
+      pct = 0;
+    } else {
+      pct = int((d->used*100+d->used/2)/sum);
       if (!pct && d->used) pct = 1;
     }
     sprintf(buf, "@b%s\t@r%s %2d%%\n", d->mount, formatk(d->total), pct);
@@ -403,7 +405,10 @@ Display* Display::make(const char* path, Disk* disk) {
   if (!wait_window) make_wait_window();
   wait_slider->type(disk ? FL_HOR_FILL_SLIDER : FL_HOR_SLIDER);
   wait_slider->value(0.0);
-  if (!(path && true_file)) wait_window->show();
+  if (!(path && true_file)) {
+    wait_window->show();
+    while (wait_window->damage()) Fl::wait(.1);
+  }
 
   Node* root = new Node;
   root->child = root->brother = 0;
@@ -452,13 +457,14 @@ Display* Display::make(const char* path, Disk* disk) {
     // split the path into parts:
     int newdepth = 0;
     const char* parts[MAXDEPTH];
-    if (*p) {
-      parts[1] = p++;
-      for (newdepth = 1; newdepth < MAXDEPTH; newdepth++) {
-	while (*p && *p != '/') p++;
-	if (*p == '/') {*p++ = 0; parts[newdepth+1] = p;}
-	else {*p = 0; break;}
-      }
+    if (*p == '/') {
+      if (!root->name) root->name = strdup("/");
+      p++;
+    }
+    for (newdepth = 0; newdepth < MAXDEPTH && *p;) {
+      parts[++newdepth] = p++;
+      while (*p && *p != '/') p++;
+      if (*p == '/') *p++ = 0;
     }
 
     // find out how many of the fields match:
@@ -505,7 +511,11 @@ Display* Display::make(const char* path, Disk* disk) {
     Node* child = root->child;
     if (root->name) {
       char buffer[1024];
-      sprintf(buffer, "%s/%s", root->name, child->name);
+      char* p = buffer;
+      const char* q = root->name;
+      while (*q) *p++ = *q++;
+      if (p[-1] != '/') *p++ = '/';
+      strcpy(p, child->name);
       free((void*)(root->name));
       root->name = strdup(buffer);
       free((void*)(child->name));
