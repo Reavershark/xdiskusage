@@ -158,7 +158,8 @@ struct Node {
   Node* brother;
   const char* name;
   ulong size;
-  ulong ordinal;
+  long ordinal; // sign bit indicates hidden
+  bool hidden() const {return ordinal < 0;}
 };
 
 // default sizes of new windows, changed by user actions on other windows:
@@ -182,13 +183,15 @@ class OutputWindow : public Fl_Window {
   OutputWindow(int w, int h, const char* l) : Fl_Window(w,h,l),
     menu_button(0,0,w,h) {box(FL_NO_BOX);}
   void finish_drawn_row();
-  void draw_tree(Node* n, int column, ulong row, double scale);
+  void draw_tree(Node* n, int column, ulong row, double scale, double offset);
   void print_tree(FILE* f, Node* n, int column, ulong row, double scale, int W, int H);
   void setcurrent(Node*, int);
   void setroot(Node*, int);
 public:
   static void root_cb(Fl_Widget*, void*);
   static void out_cb(Fl_Widget*, void*);
+  static void hide_cb(Fl_Widget*, void*);
+  static void unhide_cb(Fl_Widget*, void*);
   static void in_cb(Fl_Widget*, void*);
   static void next_cb(Fl_Widget*, void*);
   static void previous_cb(Fl_Widget*, void*);
@@ -310,7 +313,7 @@ void fix_tree(Node* n) {
   n->size = total;
 }
 
-static int ordinal;
+static long ordinal;
 
 Node* newnode(const char* name, ulong size, Node* parent, Node* & brother) {
   Node* n = new Node;
@@ -334,6 +337,8 @@ static Fl_Menu_Item menutable[] = {
   {"previous", FL_Up, OutputWindow::previous_cb},
   {"out", FL_Left, OutputWindow::out_cb},
   {"root out", '/', OutputWindow::root_cb},
+  {"hide", 'h', OutputWindow::hide_cb},
+  {"unhide", FL_SHIFT|'H', OutputWindow::unhide_cb},
   {"sort", 0, 0, 0, FL_SUBMENU},
     {"largest first", 's', OutputWindow::sort_cb, (void*)'s'},
     {"smallest first", 'r', OutputWindow::sort_cb, (void*)'r'},
@@ -616,17 +621,19 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 static int drawn_row;
 static int undrawn_column;
 
+#define BACKGROUND FL_LIGHT2
+
 // erase the reset of drawn_row
 void OutputWindow::finish_drawn_row() {
   if (undrawn_column < w()) {
-    fl_color(color());
+    fl_color(BACKGROUND);
     fl_rectf(undrawn_column, drawn_row, w()-undrawn_column, 1);
   }
 }
 
 int depth(Node* m, int quit_after) {
   int found = 0;
-  for (Node* c = m->child; c; c=c->brother) {
+  for (Node* c = m->child; c; c=c->brother) if (!c->hidden()) {
     int t = depth(c, quit_after-1);
     if (t > found) {found = t; if (found+1 >= quit_after) break;}
   }
@@ -634,14 +641,15 @@ int depth(Node* m, int quit_after) {
 }
 
 // Returns first pixel row not drawn into:
-void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale) {
+void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, double offset) {
   int X = (w()-1)*column/ncols;
   int W = (w()-1)*(column+1)/ncols - X;
-  int Y = int(row*scale+.5);
+  int Y = int(row*scale+offset+.5);
   for (; n; n = n->brother) {
     int NEXTY;
     if (n == current_root) NEXTY = h()-1;
-    else NEXTY = int((row+n->size)*scale+.5);
+    else if (n->hidden()) continue;
+    else NEXTY = int((row+n->size)*scale+offset+.5);
     int H = NEXTY-Y;
     // if we have gone to next pixel row, erase end of previous one:
     if (Y > drawn_row) {
@@ -665,11 +673,24 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale) {
       fl_rect(X,Y,W+1,H+1);
       if (undrawn_column < X+W+1) undrawn_column = X+W+1;
       if (column+1 < ncols) {
-	draw_tree(n->child, column+1, row, scale);
+	// figure out how much is not hidden:
+	ulong hidden = 0;
+	for (Node* c = n->child; c; c = c->brother)
+	  if (c->hidden()) hidden += c->size;
+	if (hidden > 0) {
+	  int yy = int((row+hidden)*scale+.5);
+	  fl_color(FL_BLACK);
+	  fl_line(X,yy,X+10,yy);
+	  fl_line(X+10,yy,X+W,Y);
+	}
+	if (hidden < n->size) {
+	  double s2 = scale*n->size/(n->size-hidden);
+	  draw_tree(n->child, column+1, row, s2, offset+row*(scale-s2));
+	}
 	if (drawn_row < NEXTY) {
 	  finish_drawn_row(); drawn_row++;
 	  if (drawn_row < NEXTY) {
-	    fl_color(color());
+	    fl_color(BACKGROUND);
 	    fl_rectf(X+W+1, drawn_row, w()-(X+W+1), NEXTY-drawn_row);
 	  }
 	  drawn_row = NEXTY;
@@ -687,13 +708,13 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale) {
       // draw a line for children less than 2 pixels tall
       int R = (w()-1)*(column+::depth(n,ncols-column))/ncols;
       if (R >= undrawn_column) {
-	fl_color(FL_DARK3);
+	fl_color(FL_DARK2);
 	fl_rectf(undrawn_column, Y, R+1-undrawn_column, 1);
 	undrawn_column = R+1;
       }
       if (H > 0) {
 	finish_drawn_row();
-	fl_color(FL_DARK3);
+	fl_color(FL_DARK2);
 	fl_rectf(X+1, NEXTY, W+1, 1);
 	drawn_row = NEXTY;
 	undrawn_column = X+W+1;
@@ -714,7 +735,7 @@ void OutputWindow::draw() {
   double scale = (double)(h()-1)/current_root->size;
   fl_font(0,10);
   drawn_row = undrawn_column = 0;
-  draw_tree(current_root, 0, 0, scale);
+  draw_tree(current_root, 0, 0, scale, 0);
 }
 
 int OutputWindow::handle(int event) {
@@ -736,14 +757,23 @@ int OutputWindow::handle(int event) {
   } else {
     column += root_depth;
     double scale = (double)(h()-1)/current_root->size;
+    double offset = 0;
     Node* n = current_root;
-    int row = 0;
+    ulong row = 0;
     int d = root_depth;
     while (n && d < column) {
       path[d] = n;
+      ulong hidden = 0;
+      for (Node* c = n->child; c; c = c->brother)
+	if (c->hidden()) hidden += c->size;
+      if (hidden >= n->size) {n = 0; break;}
+      double s2 = scale*n->size/(n->size-hidden);
+      offset += row*(scale-s2);
+      scale = s2;
       n = n->child;
       for (; n; n = n->brother) {
-	int Y1 = int((row+n->size)*scale+.5);
+	if (n->hidden()) continue;
+	int Y1 = int((row+n->size)*scale+offset+.5);
 	if (Y < Y1) break;
 	row += n->size;
       }
@@ -755,8 +785,12 @@ int OutputWindow::handle(int event) {
   if (event == FL_PUSH && Fl::event_button() != 1)
     return Fl_Window::handle(event);
   // double-click opens the item:
-  if (event == FL_RELEASE && Fl::event_clicks())
-    setroot(current_node, current_depth);
+  if (event == FL_RELEASE && Fl::event_clicks()) {
+    if (current_node == current_root && current_depth)
+      setcurrent(path[current_depth-1], current_depth-1);
+    else
+      setroot(current_node, current_depth);
+  }
   // otherwise just navigate to it:
   return 1;
 }
@@ -768,6 +802,7 @@ void OutputWindow::setcurrent(Node* n, int newdepth) {
   if (newdepth <= root_depth) setroot(n, newdepth);
   int m = current_depth-root_depth+1;
   if (m > ncols) ncols = m;
+  n->ordinal = labs(n->ordinal); // unhide
   redraw();
 }
 
@@ -819,48 +854,81 @@ void OutputWindow::root_cb(Fl_Widget* o, void*) {
   if (d->root_depth)
     d->setroot(d->path[d->root_depth-1], d->root_depth-1);
 }
+
 void OutputWindow::out_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
   if (d->current_depth)
     d->setcurrent(d->path[d->current_depth-1], d->current_depth-1);
 }
+
 void OutputWindow::in_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  if (d->current_node->child) {
-    d->path[d->current_depth] = d->current_node;
-    d->setcurrent(d->current_node->child, d->current_depth+1);
-  }
+  for (Node* c = d->current_node->child; c; c = c->brother)
+    if (!c->hidden()) {
+      d->path[d->current_depth] = d->current_node;
+      d->setcurrent(c, d->current_depth+1);
+      break;
+    }
 }
+
 void OutputWindow::next_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  if (d->current_node->brother)
-    d->setcurrent(d->current_node->brother, d->current_depth);
+  for (Node* c = d->current_node->brother; c; c = c->brother)
+    if (!c->hidden()) {
+      d->setcurrent(c, d->current_depth);
+      break;
+    }
 }
 
 void OutputWindow::previous_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
   if (!d->current_depth) return;
-  Node* n = d->path[d->current_depth-1]->child;
-  while (n) {
-    if (n->brother == d->current_node) {
-      d->setcurrent(n, d->current_depth);
+  Node* prev = 0;
+  for (Node* c = d->path[d->current_depth-1]->child; c; c = c->brother) {
+    if (c == d->current_node) {
+      if (prev) d->setcurrent(prev, d->current_depth);
       return;
     }
-    n = n->brother;
+    if (!c->hidden()) prev = c;
   }
+}
+
+void OutputWindow::hide_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
+  d->current_node->ordinal = -labs(d->current_node->ordinal);
+  for (Node* c = d->current_node->brother; c; c = c->brother)
+    if (!c->hidden()) {
+      d->setcurrent(c, d->current_depth);
+      return;
+    }
+  if (d->current_depth)
+    d->setcurrent(d->path[d->current_depth-1], d->current_depth-1);
+}
+
+void unhide(Node* n) {
+  n->ordinal = labs(n->ordinal);
+  for (Node* m = n->child; m; m = m->brother) unhide(m);
+}
+void OutputWindow::unhide_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
+  unhide(d->current_node);
+  d->redraw();
 }
 
 static int smallestfirst(const Node* a, const Node* b) {
   return (a->size < b->size) ? -1 : 1;
 }
+
 static int alphabetical(const Node* a, const Node* b) {
   return strcmp(a->name, b->name);
 }
+
 static int zalphabetical(const Node* a, const Node* b) {
   return -strcmp(a->name, b->name);
 }
+
 static int unsorted(const Node* a, const Node* b) {
-  return (a->ordinal < b->ordinal) ? -1 : 1;
+  return labs(a->ordinal) - labs(b->ordinal);
 }
 
 Node* OutputWindow::sort(Node* n, int (*compare)(const Node*, const Node*)) {
