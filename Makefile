@@ -1,7 +1,7 @@
 SHELL=/bin/sh
 
 PROGRAM = xdiskusage
-VERSION = 1.47
+VERSION = 1.48
 
 CXXFILES = panels.C xdiskusage.C
 

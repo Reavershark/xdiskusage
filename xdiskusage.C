@@ -1,8 +1,8 @@
 // xdiskusage.C
 
 const char* copyright = 
-"xdiskusage version 1.46\n"
-"Copyright (C) 2003 Bill Spitzak\n"
+"xdiskusage version 1.48\n"
+"Copyright (C) 2004 Bill Spitzak\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify "
@@ -140,13 +140,14 @@ void reload_cb(Fl_Button*, void*) {
 Fl_Window *copyright_window;
 void copyright_cb(Fl_Button*, void*) {
   if (!copyright_window) {
-    copyright_window = new Fl_Window(400,270,"Copyright");
+    copyright_window = new Fl_Window(400,270,"about xdiskusage");
     copyright_window->color(FL_WHITE);
     Fl_Box *b = new Fl_Box(10,0,380,270,copyright);
 #ifdef FL_NORMAL_SIZE
     b->labelsize(12);
 #endif
     b->align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE|FL_ALIGN_WRAP);
+    copyright_window->resizable(b);
     copyright_window->end();
   }
   copyright_window->hotspot(copyright_window);
@@ -690,7 +691,7 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, doubl
 	snprintf(buffer, 256, "%s%c%s", n->name,
 		 n->size*scale > 20 ? '\n' : ' ',
 		 formatk(n->size));
-	fl_draw(buffer, X+5, Y, W-5, H,
+	fl_draw(buffer, X+3, Y, W-3, H,
 		Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_CLIP|fltk::RAW_LABEL));
 #else
 	// we need to double all the @ signs in the filename, and do
@@ -704,7 +705,7 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, doubl
 	snprintf(buffer+i, 256-i, "%c%s",
 		 n->size*scale > 20 ? '\n' : ' ',
 		 formatk(n->size));
-	fl_draw(buffer, X+5, Y, W-5, H,
+	fl_draw(buffer, X+3, Y, W-3, H,
 		Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_CLIP));
 #endif
       }
@@ -1033,13 +1034,13 @@ void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row,
     else {Y = row*scale+offset; H = n->size*scale;}
     fprintf(f, "%d %g %d %g rect", X, -Y, W, -H);
     if (H > 20) {
-      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2+2, n->name);
-      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-8, formatk(n->size));
+      fprintf(f, " %d %g moveto (%s) %d fitshow", X+3, -Y-H/2+2, n->name, W-6);
+      fprintf(f, " %d %g moveto (%s) %d fitshow", X+3, -Y-H/2-8, formatk(n->size), W-6);
     } else if (H > 10) {
-      fprintf(f, " %d %g moveto (%s %s) show", X+5, -Y-H/2-4, n->name, formatk(n->size));
+      fprintf(f, " %d %g moveto (%s %s) %d fitshow", X+3, -Y-H/2-4, n->name, formatk(n->size), W-6);
     } else if (H > 2) {
       fprintf(f, " /Helvetica findfont %g scalefont setfont\n", H*0.95);
-      fprintf(f, " %d %g moveto (%s %s) show\n", X+5, -Y-H*0.85, n->name, formatk(n->size));
+      fprintf(f, " %d %g moveto (%s %s) %d fitshow\n", X+3, -Y-H*0.85, n->name, formatk(n->size), W-6);
       fprintf(f, " /Helvetica findfont 10 scalefont setfont");
     }
     fprintf(f, "\n");
@@ -1062,11 +1063,19 @@ void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row,
   }
 }
 
+#if FL_MAJOR_VERSION > 1
+static void ok_cb(Fl_Widget* w, void*) {
+  w->window()->set_value();
+  w->window()->hide();
+}
+#endif
+
 void OutputWindow::print_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
   if (!print_panel) make_print_panel();
 #if FL_MAJOR_VERSION > 1
-  print_panel->exec();
+  print_ok_button->callback(ok_cb);
+  if (!print_panel->exec()) return;
 #else
   print_panel->show();
   for (;;) {
@@ -1107,6 +1116,7 @@ void OutputWindow::print_cb(Fl_Widget* o, void*) {
   fprintf(f, "/rect {4 2 roll moveto dup 0 exch rlineto exch 0 rlineto neg 0 exch rlineto closepath stroke} bind def\n");
   fprintf(f, "/pagelevel save def\n");
   fprintf(f, "/Helvetica findfont 10 scalefont setfont\n");
+  fprintf(f, "/fitshow {gsave 1 index stringwidth pop div dup 1 lt {dup sqrt scale} {pop} ifelse show grestore} bind def\n");
   fprintf(f, "0 setlinewidth\n");
   if (print_portrait_button->value())
     fprintf(f, "%d %d translate\n", 36+X, 36+Y+H);
