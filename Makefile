@@ -7,7 +7,7 @@ CXXFILES = panels.C xdiskusage.C
 
 #LIBS = -lfltk
 # You may need this to link with a shared version of fltk:
-LIBS = -lfltk -lGL -lGLU -lglut
+LIBS = -lfltk -lXinerama -lGL -lGLU
 
 MANPAGE = 1
 
@@ -69,9 +69,9 @@ debug: $(PROGRAM_D)
 OBJECTS_D = $(CXXFILES:.C=.do) $(CFILES:.c=.do)
 
 .C.do :
-	$(CXX) -I.. $(CXXFLAGS_D) -c -o $@ $<
+	$(CXX) $(CXXFLAGS_D) -c -o $@ $<
 .c.do :
-	$(CC) -I.. $(CFLAGS_D) -c -o $@ $<
+	$(CC) $(CFLAGS_D) -c -o $@ $<
 
 $(PROGRAM_D) : $(OBJECTS_D)
 	$(CXX) $(CXXFLAGS_D) -o $(PROGRAM_D) $(OBJECTS_D) $(LIBS) $(LDLIBS)

@@ -132,6 +132,9 @@ void reload_cb(Fl_Button*, void*) {
     disk_browser->add(buf);
   }
   disk_browser->position(0);
+#if FL_MAJOR_VERSION > 1
+  disk_browser->deselect();
+#endif
 }
 
 Fl_Window *copyright_window;
@@ -220,11 +223,13 @@ int arg_cb(int, char **argv, int &i) {
 }
 
 int main(int argc, char**argv) {
+#if FL_MAJOR_VERSION < 2
   // Make fltk look more like KDE/Windoze:
 #ifndef FL_NORMAL_SIZE // detect new versions of fltk where this is a variable
   FL_NORMAL_SIZE = 12;
 #endif
   Fl::set_color(FL_SELECTION_COLOR,0,0,128);
+#endif
   // Parse and -x switches understood by fltk:
   int n; Fl::args(argc,argv,n, arg_cb);
   // Any remaining words are files/directories:
@@ -664,11 +669,27 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, doubl
       fl_color(FL_BLACK);
       if (n->size*scale > 10) {
 	char buffer[256];
+#if FL_MAJOR_VERSION > 1
 	snprintf(buffer, 256, "%s%c%s", n->name,
 		 n->size*scale > 20 ? '\n' : ' ',
 		 formatk(n->size));
 	fl_draw(buffer, X+5, Y, W-5, H,
+		Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_CLIP|fltk::RAW_LABEL));
+#else
+	// we need to double all the @ signs in the filename, and do
+	// something with unprintable letters:
+	int i,j; for (i = j = 0; i < 254;) {
+	  unsigned char c = (unsigned char)(n->name[j++]);
+	  if (!c) break;
+	  if (c < 32 || c>=127 && c < 0xA0 || c==255) c = '?';
+	  buffer[i++] = c; if (c=='@' || c=='&') buffer[i++] = c;
+	}
+	snprintf(buffer+i, 256-i, "%c%s",
+		 n->size*scale > 20 ? '\n' : ' ',
+		 formatk(n->size));
+	fl_draw(buffer, X+5, Y, W-5, H,
 		Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_CLIP));
+#endif
       }
       fl_rect(X,Y,W+1,H+1);
       if (undrawn_column < X+W+1) undrawn_column = X+W+1;
