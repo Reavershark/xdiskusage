@@ -1,0 +1,57 @@
+dnl# -*- sh -*-
+dnl# the "configure" script is made from this by running GNU "autoconf"
+
+AC_INIT(xdiskusage.C)
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_INSTALL
+
+AC_PATH_XTRA
+echo "Ignoring libraries \"$X_PRE_LIBS\" requested by configure."
+dnl# LIBS="$LIBS$X_LIBS$X_PRE_LIBS"
+LIBS="$LIBS$X_LIBS"
+
+MAKEDEPEND="\$(CXX) -M"
+
+dnl# add warnings and optimization to compiler switches:
+if test -n "$GXX"; then
+    # GNU C compiler
+    CFLAGS="-Wall -O2"
+    CFLAGS_D="-Wall -g -DDEBUG"
+    CXXFLAGS="-Wall -O2"
+    CXXFLAGS_D="-Wall -g -DDEBUG"
+else
+if test "`(uname) 2>/dev/null`" = IRIX; then
+  if expr "`(uname -r)`" \>= 6.2; then
+    # turn on new "n32" Irix compiler:
+    CXX="CC -n32"
+    CC="cc -n32"
+    LD="ld -n32"
+    # but -M is broken so use old compiler:
+    MAKEDEPEND="CC -M"
+    CFLAGS="-fullwarn -O2"
+    CFLAGS_D="-fullwarn -gslim -DDEBUG"
+    CXXFLAGS="-fullwarn -O2"
+    CXXFLAGS_D="-fullwarn -gslim -DDEBUG"
+  else
+    # old Irix compiler:
+    CFLAGS="-O2"
+    CFLAGS_D="-g -DDEBUG"
+    CXXFLAGS="+w +pp -O2"
+    CXXFLAGS_D="+w +pp -g -DDEBUG"
+  fi
+else
+    # generic C compiler:
+    CFLAGS="-O"
+    CFLAGS_D="-g -DDEBUG"
+    CXXFLAGS="-O"
+    CXXFLAGS_D="-g -DDEBUG"
+fi
+fi
+AC_SUBST(MAKEDEPEND)
+AC_SUBST(CFLAGS_D)
+AC_SUBST(CXXFLAGS_D)
+dnl# AC_CONFIG_HEADER(config.h:configh.in)
+AC_OUTPUT(makeinclude)
+
+dnl# end of configure.in

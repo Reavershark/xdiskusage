@@ -1,0 +1,138 @@
+xdiskusage Version 1.31
+
+----------------------------------------------------------------
+How to compile xdiskusage:
+----------------------------------------------------------------
+
+You need fltk.  If you do not have it yet, download it from
+http://fltk.easysw.com, and compile and install it.
+
+Type "./configure" (not necessary if you have gmake)
+
+Type "make"
+
+Test it by typing "./xdiskusage"
+
+Become superuser and type "make install"
+
+If you wish to edit the code, type "make depend"
+
+----------------------------------------------------------------
+How to use xdiskusage:
+----------------------------------------------------------------
+
+When you run it it presents you with a list of all the disks mounted
+on your system (it found these by running "df").  Click one of these
+names and it will scan the entire disk (by running "du") and present a
+graphical display of how much space all the files are taking on that
+disk.
+
+You can click on several disks (or on the same disk multiple times,
+for instance if you have changed the files stored on it) and get
+multiple display windows.
+
+The "rescan" button reruns "df" to get a new list of disks.  You need
+to do this if you mount or unmount a disk.
+
+The copyright button shows you the copyright.
+
+You can also type in a pathname.  This is passed to "du" and can be
+used if you are only interested in the space used by a certain
+subdirectory.  Use of this field will prevent xdiskusage from showing
+the (free) and (?) space.  If the named file is a symbolic link it is
+dereferenced before being sent to du.
+
+The "all files" button sends the -a switch to "du" causing it to list
+the space for every file on the disk.  This can significantly increase
+the time it takes to scan.
+
+----------------------------------------------------------------
+How to use the disk usage window
+----------------------------------------------------------------
+
+Each white box represents a directory.  It's size is equal to the sum
+of all it's contents (all subdirectories and files).  To the right of
+each box are stacked the boxes for the subdirectories.
+
+If you selected a disk two special boxes are added: "(free)" is the
+free space on the disk, and "(?)" is the difference between what du
+reports and what is actually free (I think this is both unreadable
+directories due to protection violations and the space needed to store
+the directories themselves).  You may also see "(files)" which are
+files in the root directory of the disk.
+
+The left-most box is the "current directory".
+
+Clicking on any box makes it the current directory: putting it on the
+left edge and blowing it up to the height of the window and scaling
+all it's contents the same.  Clicking on the current directory goes up
+to it's parent directory.
+
+To dismiss any window type Escape.
+
+----------------------------------------------------------------
+Menu Items:
+----------------------------------------------------------------
+
+There is a pop-up menu on the right-hand mouse button.  Every item on
+the menu has a keyboard shortcut.  The menu items are:
+
+  In (right arrow): go to the first child of the current directory.
+
+  Next (down arrow): go down to brother of current directory.
+
+  Previous (up arrow): go up to the brother of current directory.
+
+  Out (left arrow): go to parent of current directory.
+
+  Root (slash): put the current directory back to the outermost one
+
+  Sort/Largest (s): sort largest size at the top
+
+  Sort/Smallest (r): sort smallest size at the top
+
+  Sort/Alphabetical (a): sort in alphabetical order
+
+  Sort/Reverse Alphabetical (z): sort in backwards alphabetical order
+
+  Sort/Unsorted (u): sort in the order read from du.
+
+  Columns/2-11 (2-9,0,1): arrange display to have N columns.
+
+  Copy to Clipboard (c): the pathname of the current directory is put in
+  the X clipboard (you can then paste it into a shell command).
+
+  Print (p): The current display is printed.  The output is Encapsulated
+  PostScript.  It will either run it through lpr (or any command you
+  choose) or send it to a file.
+
+----------------------------------------------------------------
+Acknoledgements
+----------------------------------------------------------------
+
+This program was inspired by, and the user interface design copied
+from, the "xdu" program written by Phillip C. Dykstra
+<phil@arl.army.mil>
+
+----------------------------------------------------------------
+Copyright (C) 1998-1999 Bill Spitzak
+----------------------------------------------------------------
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+USA.
+
+Written by Bill Spitzak		spitzak@d2.com
+----------------------------------------------------------------
+END
+----------------------------------------------------------------

@@ -1,0 +1,140 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 0.99 
+header_name {.H} 
+code_name {.C} 
+gridx 5 
+gridy 5 
+snap 3
+Function {make_diskchooser()} {open
+} {
+  Fl_Window disk_chooser {
+    label {Disk Usage Display} open
+    xywh {192 212 404 252} resizable visible
+  } {
+    Fl_Button {} {
+      label reload
+      callback reload_cb
+      xywh {290 5 65 25}
+    }
+    Fl_Button {} {
+      label {©}
+      callback copyright_cb
+      xywh {360 5 30 25}
+    }
+    Fl_Browser disk_browser {
+      label {Pick a disk:}
+      callback disk_browser_cb
+      xywh {15 30 375 150} type Hold align 5 resizable
+      code0 {static int widths[] = {200,0};}
+      code1 {o->column_widths(widths);}
+    }
+    Fl_Input disk_input {
+      label {Or type pathname in and hit Enter:}
+      callback disk_input_cb
+      xywh {15 200 345 25} align 5 when 10
+      code0 {o->value("/");}
+    }
+    Fl_Button {} {
+      label {...}
+      callback {const char* c = fl_file_chooser("Directory:", 0, disk_input->value());
+if (c) disk_input->value(c);}
+      xywh {360 200 30 25}
+      code0 {\#include <FL/fl_file_chooser.H>}
+    }
+    Fl_Check_Button {} {
+      label {measure directories only}
+      xywh {15 225 185 25} type Radio down_box DIAMOND_DOWN_BOX value 1
+    }
+    Fl_Check_Button all_files_button {
+      label {measure all files}
+      xywh {215 225 145 25} type Radio down_box DIAMOND_DOWN_BOX
+    }
+  }
+} 
+
+Function {make_wait_window()} {open
+} {
+  Fl_Window wait_window {open
+    xywh {362 558 229 100} resizable hotspot modal visible
+  } {
+    Fl_Slider wait_slider {
+      label {Reading disk:} selected
+      xywh {10 25 205 25} type {Horz Fill} color 12 selection_color 47 align 5 resizable
+      code0 {o->set_output();}
+    }
+    Fl_Button {} {
+      label Cancel
+      callback cancel_cb
+      xywh {70 60 80 25} shortcut 0xff1b
+    }
+  }
+} 
+
+Function {make_print_panel()} {open
+} {
+  Fl_Window print_panel {
+    label Print
+    xywh {277 348 345 193} hotspot modal visible
+  } {
+    Fl_Box {} {
+      label {Print to:}
+      xywh {10 5 85 25} labelfont 1 labelsize 18 align 20
+    }
+    Fl_Light_Button {} {
+      label printer
+      xywh {10 35 75 25} type Radio value 1
+    }
+    Fl_Input print_command_input {
+      xywh {85 35 250 25}
+      code0 {o->value("lpr");}
+    }
+    Fl_Light_Button print_file_button {
+      label file
+      xywh {10 65 75 25} type Radio
+    }
+    Fl_Input print_file_input {
+      xywh {85 65 220 25}
+      code0 {o->value("xdiskusage.ps");}
+    }
+    Fl_Button {} {
+      label {...}
+      callback {const char* c = fl_file_chooser("Print to:", "*.ps", print_file_input->value());
+if (c) print_file_input->value(c);}
+      xywh {306 65 30 25}
+      code0 {\#include <FL/fl_file_chooser.H>}
+    }
+    Fl_Group {} {open
+      xywh {10 100 325 25} align 4
+    } {
+      Fl_Check_Button print_portrait_button {
+        label portrait
+        xywh {10 100 80 25} type Radio down_box DIAMOND_DOWN_BOX value 1
+      }
+      Fl_Check_Button {} {
+        label landscape
+        xywh {90 100 100 25} type Radio down_box DIAMOND_DOWN_BOX
+      }
+    }
+    Fl_Group {} {open
+      xywh {10 130 330 25} align 4
+    } {
+      Fl_Check_Button fill_page_button {
+        label {reshape to fill page}
+        xywh {10 130 150 25} type Radio down_box DIAMOND_DOWN_BOX value 1
+      }
+      Fl_Check_Button {} {
+        label {same shape as window}
+        xywh {160 130 175 25} type Radio down_box DIAMOND_DOWN_BOX
+      }
+    }
+    Fl_Return_Button print_ok_button {
+      label OK
+      xywh {160 160 85 25}
+    }
+    Fl_Button {} {
+      label Cancel
+      callback {o->window()->hide();}
+      xywh {250 160 85 25} shortcut 0xff1b
+    }
+  }
+} 
