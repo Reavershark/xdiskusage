@@ -184,7 +184,7 @@ class OutputWindow : public Fl_Window {
     menu_button(0,0,w,h) {box(FL_NO_BOX);}
   void finish_drawn_row();
   void draw_tree(Node* n, int column, ulong row, double scale, double offset);
-  void print_tree(FILE* f, Node* n, int column, ulong row, double scale, int W, int H);
+  void print_tree(FILE* f, Node* n, int column, ulong row, double scale, double offset, int W, int H);
   void setcurrent(Node*, int);
   void setroot(Node*, int);
 public:
@@ -678,7 +678,7 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, doubl
 	for (Node* c = n->child; c; c = c->brother)
 	  if (c->hidden()) hidden += c->size;
 	if (hidden > 0) {
-	  int yy = int((row+hidden)*scale+.5);
+	  int yy = int((row+hidden)*scale+offset+.5);
 	  fl_color(FL_BLACK);
 	  fl_line(X,yy,X+10,yy);
 	  fl_line(X+10,yy,X+W,Y);
@@ -982,15 +982,17 @@ void OutputWindow::resize(int X, int Y, int W, int H) {
 ////////////////////////////////////////////////////////////////
 // PostScript output
 
-void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
-			 int bboxw, int bboxh) {
-  if (!n || column >= ncols) return;
+void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row,
+			      double scale, double offset,
+			      int bboxw, int bboxh)
+{
   int X = bboxw*column/ncols;
   int W = bboxw*(column+1)/ncols - X;
   for (; n; n = n->brother) {
     double Y,H;
     if (n == current_root) {Y = 0; H = bboxh;}
-    else {Y = row*scale; H = n->size*scale;}
+    else if (n->hidden()) continue;
+    else {Y = row*scale+offset; H = n->size*scale;}
     fprintf(f, "%d %g %d %g rect", X, -Y, W, -H);
     if (H > 20) {
       fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2+2, n->name);
@@ -1003,7 +1005,20 @@ void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row, double scal
       fprintf(f, " /Helvetica findfont 10 scalefont setfont");
     }
     fprintf(f, "\n");
-    print_tree(f, n->child, column+1, row, scale, bboxw, bboxh);
+    if (n->child && column+1 < ncols) {
+      ulong hidden = 0;
+      for (Node* c = n->child; c; c = c->brother)
+	if (c->hidden()) hidden += c->size;
+      if (hidden > 0) {
+	double yy = (row+hidden)*scale+offset;
+	fprintf(f, " %d %g moveto %d %g lineto %d %g lineto stroke\n",
+		X, -yy, X+10, -yy, X+W, -Y);
+      }
+      if (hidden < n->size) {
+	double s2 = scale*n->size/(n->size-hidden);
+	print_tree(f, n->child, column+1, row, s2, offset+row*(scale-s2), bboxw, bboxh);
+      }
+    }
     if (n == current_root) return;
     row += n->size;
   }
@@ -1060,7 +1075,7 @@ void OutputWindow::print_cb(Fl_Widget* o, void*) {
   else
     fprintf(f, "%d %d translate 90 rotate\n", 36+Y, 36+X);
   double scale = (double)H/d->current_root->size;
-  d->print_tree(f, d->current_root, 0, 0, scale, W, H);
+  d->print_tree(f, d->current_root, 0, 0, scale, 0, W, H);
   fprintf(f,"showpage\npagelevel restore\n%%%%EOF\n");
   if (print_file_button->value()) {
     fclose(f);
