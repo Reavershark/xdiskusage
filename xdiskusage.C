@@ -1,21 +1,8 @@
 // xdiskusage.C
 
-// Display disk usage in a window.  
-
-#if defined(__bsdi__)
-#define DF_COMMAND "df"
-#define DU_COMMAND "du -x"
-#elif defined(SVR4)
-#define DF_COMMAND "df -k"
-#define DU_COMMAND "du -kd"
-#else
-#define DF_COMMAND "df -k"
-#define DU_COMMAND "du -kx"
-#endif
-
 const char* copyright = 
-"Disk Usage Display\n"
-"Copyright (C) 1998 Bill Spitzak    spitzak@d2.com\n"
+"xdiskusage version 1.4\n"
+"Copyright (C) 2000 Bill Spitzak    spitzak@d2.com\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify "
@@ -32,6 +19,17 @@ const char* copyright =
 "along with this software; if not, write to the Free Software "
 "Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 "
 "USA.";
+
+#if defined(__bsdi__)
+#define DF_COMMAND "df"
+#define DU_COMMAND "du -x"
+#elif defined(SVR4)
+#define DF_COMMAND "df -k"
+#define DU_COMMAND "du -kd"
+#else
+#define DF_COMMAND "df -k"
+#define DU_COMMAND "du -kx"
+#endif
 
 #include <stdio.h>
 #include <ctype.h>
@@ -58,15 +56,18 @@ const char* formatk(ulong k) {
   return buffer;
 }
 
+// Holds data read from 'df' for each disk
 struct Disk {
   const char* mount;
-  ulong k;
+  ulong total;
   ulong used;
+  ulong avail;
   Disk* next;
 };
 
 Disk* firstdisk;
 
+// Run 'df' and create a list of Disk structures, fill in browser:
 void reload_cb(Fl_Button*, void*) {
   FILE* f = popen(DF_COMMAND, "r");
   if (!f) {
@@ -93,8 +94,9 @@ void reload_cb(Fl_Button*, void*) {
     // ok we found a line with a /xyz at the end:
     Disk* d = new Disk;
     d->mount = strdup(word[n-1]);
-    d->k = strtol(word[n-5],0,10);
+    d->total = strtol(word[n-5],0,10);
     d->used=strtol(word[n-4],0,10);
+    d->avail=strtol(word[n-3],0,10);
     *pointer = d;
     d->next = 0;
     pointer = &d->next;
@@ -109,7 +111,9 @@ void reload_cb(Fl_Button*, void*) {
 
   for (Disk* d = firstdisk; d; d = d->next) {
     char buf[512];
-    sprintf(buf, "@b%s\t@r%s\n", d->mount, formatk(d->k));
+    int pct = int((d->used*100+d->used/2)/(d->used+d->avail));
+    if (!pct && d->used) pct = 1;
+    sprintf(buf, "@b%s\t@r%s %2d%%\n", d->mount, formatk(d->total), pct);
     disk_browser->add(buf);
   }
   disk_browser->position(0);
@@ -120,8 +124,7 @@ void copyright_cb(Fl_Button*, void*) {
   if (!copyright_window) {
     copyright_window = new Fl_Window(400,270,"Copyright");
     copyright_window->color(FL_WHITE);
-    Fl_Box *b = new Fl_Box(20,0,380,270,copyright);
-    b->labelsize(10);
+    Fl_Box *b = new Fl_Box(10,0,380,270,copyright);
     b->align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE|FL_ALIGN_WRAP);
     copyright_window->end();
   }
@@ -129,6 +132,8 @@ void copyright_cb(Fl_Button*, void*) {
   copyright_window->set_non_modal();
   copyright_window->show();
 }
+
+////////////////////////////////////////////////////////////////
 
 struct Node {
   Node* child;
@@ -170,18 +175,49 @@ public:
   static void copy_cb(Fl_Widget* o, void*);
   static void print_cb(Fl_Widget* o, void*);
   static Node* sort(Node* n, int (*compare)(const Node*, const Node*));
-  static Display* make(const char*, ulong, ulong, int);
+  static Display* make(const char*, Disk* = 0);
   ~Display();
 };
 
+int all_files;
+int arg_cb(int, char **argv, int &i) {
+  const char *s = argv[i];
+  if (s && s[0] == '-' && s[1] == 'a') {all_files = 1; i++; return 1;}
+  return 0;
+}
+
 int main(int argc, char**argv) {
-  int n; Fl::args(argc,argv,n);
-  if (n >= argc) {
+  // Make fltk look more like KDE/Windoze:
+  FL_NORMAL_SIZE = 12;
+  Fl::set_color(FL_SELECTION_COLOR,0,0,128);
+  // Parse and -x switches understood by fltk:
+  int n; Fl::args(argc,argv,n, arg_cb);
+  // Any remaining words are files/directories:
+  if (n < argc) {
+    if (argv[n][0] == '-') {
+      if (argv[n][1]) { // unknown switch
+	fprintf(stderr,
+"xdiskusage		display browser of disks to run du on\n"
+"xdiskusage directory...	run du on each named directory\n"
+"xdiskusage file...	assume the file contains du output\n"
+"du ... | xdiskusage	pipe du output to xdiskusage\n"
+" -a	show all files\n%s\n -help\n", Fl::help);
+	return 1;
+      }
+    }
+    while (n < argc) {
+      Display* d = Display::make(argv[n++]);
+      if (d) d->show(argc,argv);
+    }
+  } else if (!isatty(0)) {
+    // test for pipe, if so read stdin:
+    Display* d = Display::make(0);
+    if (d) d->show(argc,argv);
+  } else {
+    // normal gui:
     make_diskchooser();
     reload_cb(0,0);
     disk_chooser->show(argc,argv);
-  } else {
-    while (n < argc) Display::make(argv[n++], 0, 0, 0);
   }
   return Fl::run();
 }
@@ -191,30 +227,18 @@ void disk_browser_cb(Fl_Browser*b, void*) {
   if (!i) return;
   Disk* d;
   for (d = firstdisk; i > 1; i--) d = d->next;
-  Display::make(d->mount, d->used, d->k, all_files_button->value());
+  all_files = all_files_button->value();
+  Display* w = Display::make(d->mount, d);
+  if (w) w->show();
   //b->value(0);
 }
 
 #include <FL/filename.H>
 
 void disk_input_cb(Fl_Input* i, void*) {
-  // follow all symbolic links...
-  char buf[1024]; strncpy(buf, i->value(), 1024);
-  for (;;) {
-    char *p = (char*)filename_name(buf);
-    int i = readlink(buf, p, 1024-(p-buf));
-    if (i < 0) {
-      if (errno != EINVAL) {
-	strcat(buf, ": no such file");
-	fl_alert(buf);
-	return;
-      }
-      break;
-    }
-    if (*p == '/') {memmove(buf, p, i); p = buf;}
-    p[i] = 0;
-  }
-  Display::make(buf, 0, 0, all_files_button->value());
+  all_files = all_files_button->value();
+  Display* w = Display::make(i->value(), 0);
+  if (w) w->show();
 }
 
 void close_cb(Fl_Widget* o, void*) {
@@ -297,33 +321,56 @@ static int largestfirst(const Node* a, const Node* b) {
   return (a->size > b->size) ? -1 : 1;
 }
 
-Display* Display::make(const char* path, ulong used, ulong total, int all) {
+Display* Display::make(const char* path, Disk* disk) {
 
   cancelled = 0;
 
   FILE* f;
   bool true_file;
   char buffer[1024];
+  char pathbuf[1024];
 
-  // First, determine if the path we're given is an actual file, and
-  // not a directory.  If it is a file, assume it's the output from a
-  // du command the user ran by hand.
-  struct stat stbuf;
-  if (stat(path, &stbuf) < 0) {
-    perror(path);
-    return 0;
-  }
-  true_file = S_ISREG(stbuf.st_mode);
-
-  if (true_file) {
-    // It *is* a regular file.  Just fopen it.
-    f = fopen(path, "r");
-    if (!f) {
-      fl_alert("Could not read %s!", path);
+  if (!path) {
+    // it is a pipe
+    true_file = true;
+    f = stdin;
+  } else {
+    if (!disk) {
+      // follow all symbolic links...
+      strncpy(pathbuf, path, 1024);
+      for (int i=0; i<10; i++) {
+	char *p = (char*)filename_name(pathbuf);
+	int i = readlink(pathbuf, p, 1024-(p-pathbuf));
+	if (i < 0) {
+	  if (errno != EINVAL) {
+	    strcat(pathbuf, ": no such file");
+	    fl_alert(pathbuf);
+	    return 0;
+	  }
+	  break;
+	}
+	if (*p == '/') {memmove(pathbuf, p, i); p = pathbuf;}
+	p[i] = 0;
+	path = pathbuf;
+      }
+    }
+    // First, determine if the path we're given is an actual file, and
+    // not a directory.  If it is a file, assume it's the output from a
+    // du command the user ran by hand.
+    struct stat stbuf;
+    if (stat(path, &stbuf) < 0) {
+      fl_alert("%s : %s", path, strerror(errno));
       return 0;
     }
+    true_file = S_ISREG(stbuf.st_mode);
+    f = fopen(path, "r");
+    if (!f) {
+      fl_alert("%s : %s", path, strerror(errno));
+      return 0;
+    }
+  }
 
-  } else {
+  if (!true_file) {
     // It's a directory; popen a du command starting at that directory.
     
 #ifdef __sgi
@@ -332,27 +379,26 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
     // into symbolic links (at least for a stat()).  At DD all the symbolic
     // links are on the /usr disk so I special case it:
     if (!strcmp(path, "/usr"))
-      sprintf(buffer, "du -k%c \"%s\"", all ? 'a' : ' ', path);
+      sprintf(buffer, "du -k%c \"%s\"", all_files ? 'a' : ' ', path);
     else
 #endif
-      sprintf(buffer, DU_COMMAND"%c \"%s\"", all ? 'a' : ' ', path);
+      sprintf(buffer, DU_COMMAND"%c \"%s\"", all_files ? 'a' : ' ', path);
     
     f = popen(buffer,"r");
     if (!f) {
-      fl_alert("Problem running du!");
+      fl_alert("Problem running '%s' : %s", buffer, strerror(errno));
       return 0;
     }
   }
 
   if (!wait_window) make_wait_window();
-  wait_slider->type(used ? FL_HOR_FILL_SLIDER : FL_HOR_SLIDER);
+  wait_slider->type(disk ? FL_HOR_FILL_SLIDER : FL_HOR_SLIDER);
   wait_slider->value(0.0);
-  wait_window->show();
-  Fl::flush();
+  if (!(path && true_file)) wait_window->show();
 
   Node* root = new Node;
   root->child = root->brother = 0;
-  root->name = strdup(path);
+  root->name = 0; //if (!true_file) root->name = strdup(path);
   root->size = 0;
   root->ordinal = 0;
   ordinal = 0;
@@ -365,40 +411,40 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
   totals[0] = 0;
   int currentdepth = 0;
 
-  while (fgets(buffer, 1024, f)) {
-    char* p;
+  for (;;) {
+    if (!(path && true_file)) Fl::check();
+    if (cancelled) {
+      delete_tree(root);
+      if (true_file) {
+	if (path) fclose(f);
+      } else {
+	pclose(f);
+      }
+      wait_window->hide();
+      return 0;
+    }
+
+    if (!fgets(buffer, 1024, f)) break;
 
     // null-terminate the line:
-    p = buffer+strlen(buffer);
+    char* p = buffer+strlen(buffer);
     if (p > buffer && p[-1] == '\n') p[-1] = 0;
 
     ulong size = strtoul(buffer, &p, 10);
-    if (!size) continue;
     while (isspace(*p)) p++;
+    if (!size) {
+      if (!true_file) continue;
+      if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
+      fl_alert("%s does not look like du output", path);
+      cancelled = 1;
+      continue;
+    }
 
     // split the path into parts:
-    if (!true_file) {
-      // the first part of path must match pathname (which may have
-      // slashes):
-      const char* r = path;
-      while (*r && *p == *r) {p++; r++;}
-      if (*r == '/') r++;
-      if (*r) {
-	fprintf(stderr,"Unexpected path from du: %s\n", buffer);
-	continue;
-      }
-    } else {
-      // If we're just reading this from some external du process
-      // output, we don't know what the first part of the path will
-      // be, although it often starts with a dot that we can ignore.
-      if (*p == '.') p++;
-    }
-    
-    if (*p == '/') p++;
     int newdepth = 0;
     const char* parts[MAXDEPTH];
     if (*p) {
-      parts[1] = p;
+      parts[1] = p++;
       for (newdepth = 1; newdepth < MAXDEPTH; newdepth++) {
 	while (*p && *p != '/') p++;
 	if (*p == '/') {*p++ = 0; parts[newdepth+1] = p;}
@@ -412,17 +458,13 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
       if (strcmp(parts[match+1],lastnode[match+1]->name)) break;
     }
 
+    // give a total to any subdirectories we are leaving that du did
+    // not report a total for:
     for (int j = currentdepth; j > match; j--) fix_tree(lastnode[j]);
 
     if (match == newdepth) {
       Node* p = lastnode[newdepth];
       ulong t = totals[newdepth]+size;
-      if ((all || used && !newdepth) && t > runningtotal) {
-	// add a dummy node for any unreported files:
-	newnode("(files)", t-runningtotal, p, lastnode[newdepth+1]);
-//    } else if (t < runningtotal) {
-// 	printf("oversize %ld > %s\n", runningtotal-totals[newdepth], buffer);
-      }
       p->size = size;
       runningtotal = t;
     } else {
@@ -438,40 +480,58 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
     currentdepth = newdepth;
     totals[newdepth] = runningtotal;
 
-    wait_slider->value(used ? (double)runningtotal/used :
+    wait_slider->value(disk ? (double)runningtotal/disk->used :
 		       (double)(ordinal%1024)/1024);
-    Fl::check();
-    if (cancelled) {
-      delete_tree(root);
-      if (true_file) {
-	fclose(f);
-      } else {
-	pclose(f);
-      }
-      wait_window->hide();
-      return 0;
-    }
   }
 
   if (true_file) {
-    fclose(f);
+    if (path) fclose(f);
   } else {
     pclose(f);
   }
   wait_window->hide();
 
+  // remove all the common roots that were not given sizes by du:
+  while (root->child && !root->size && !root->child->brother) {
+    Node* child = root->child;
+    if (root->name) {
+      char buffer[1024];
+      sprintf(buffer, "%s/%s", root->name, child->name);
+      free((void*)(root->name));
+      root->name = strdup(buffer);
+      free((void*)(child->name));
+    } else {
+      root->name = child->name;
+    }
+    root->size = child->size;
+    root->child = child->child;
+    delete child;
+    for (int j = 1; j < currentdepth; j++) lastnode[j] = lastnode[j+1];
+    currentdepth--;
+  }
+    
+  // give a total to any subdirectories we are leaving that du did
+  // not report a total for:
   for (int j = currentdepth; j > 0; j--) fix_tree(lastnode[j]);
 
-  if (used > runningtotal) {
-    // add a dummy node for missing stuff (probably permission denied errors):
-    newnode("(?)", used-runningtotal, root, lastnode[1]);
-    runningtotal = used;
-  }
-
-  if (total > runningtotal) {
-    // add a dummy node for disk free space:
-    newnode("(free)", total-runningtotal, root, lastnode[1]);
-    runningtotal = total;
+  // Add dummy nodes to report more information we learned from df:
+  if (disk) {
+    // find last child so we can add after it:
+    Node* n = root->child;
+    while (n && n->brother) n = n->brother;
+    if (disk->used > runningtotal) {
+      // missing stuff (probably permission denied errors):
+      newnode("(permission denied)", disk->used-runningtotal, root, n);
+      runningtotal = disk->used;
+    }
+    if (disk->avail) {
+      newnode("(free)", disk->avail, root, n);
+      runningtotal += disk->avail;
+    }
+    if (disk->total > runningtotal) {
+      newnode("(inodes)", disk->total-runningtotal, root, n);
+      runningtotal = disk->total;
+    }
   }
 
   root->size = runningtotal;
@@ -484,9 +544,8 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
   d->menu_button.box(FL_NO_BOX);
   d->callback(close_cb);
   d->depth = 0;
-  d->show();
 
-  return 0;
+  return d;
 }
 
 void Display::draw_tree(Node* n, int column, ulong row, double scale) {
@@ -497,7 +556,7 @@ void Display::draw_tree(Node* n, int column, ulong row, double scale) {
     int Y,H;
     if (n == current_root) {Y = 0; H = h()-1;}
     else {Y = int(row*scale+.5); H = int((row+n->size)*scale+.5) - Y;}
-    if (H > 0) {
+    if (H > 1) {
       fl_color(FL_WHITE);
       fl_rectf(X,Y,W,H);
       fl_color(FL_BLACK);
@@ -508,8 +567,14 @@ void Display::draw_tree(Node* n, int column, ulong row, double scale) {
       } else if (H > 10) {
 	fl_draw(n->name, X, Y, W, H, FL_ALIGN_CENTER);
       }
-    }
       draw_tree(n->child, column+1, row, scale);
+    } else {
+      // draw a line for all children
+      int endcolumn = column+1;
+      for (Node* m = n->child; m && endcolumn < ncols; m=m->child) endcolumn++;
+      fl_color(FL_BLACK);
+      fl_line(X,Y,(w()-1)*endcolumn/ncols,Y);
+    }
     if (n == current_root) return;
     row += n->size;
   }
@@ -687,6 +752,7 @@ void Display::resize(int X, int Y, int W, int H) {
 }
 
 ////////////////////////////////////////////////////////////////
+// PostScript output
 
 void Display::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
 			 int bboxw, int bboxh) {
@@ -697,17 +763,15 @@ void Display::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
     double Y,H;
     if (n == current_root) {Y = 0; H = bboxh;}
     else {Y = row*scale; H = n->size*scale;}
-    if (H >= 1.0) {
-      fprintf(f, "%d %g %d %g rect", X, -Y, W, -H);
-      if (H > 20) {
-	fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2, n->name);
-	fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-10,formatk(n->size));
-      } else if (H > 10) {
-	fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-4, n->name);
-      }
-      fprintf(f, "\n");
-      print_tree(f, n->child, column+1, row, scale, bboxw, bboxh);
+    fprintf(f, "%d %g %d %g rect", X, -Y, W, -H);
+    if (H > 20) {
+      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2, n->name);
+      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-10,formatk(n->size));
+    } else if (H > 10) {
+      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-4, n->name);
     }
+    fprintf(f, "\n");
+    print_tree(f, n->child, column+1, row, scale, bboxw, bboxh);
     if (n == current_root) return;
     row += n->size;
   }
@@ -768,3 +832,5 @@ void Display::print_cb(Fl_Widget* o, void*) {
     pclose(f);
   }
 }
+
+// End of xdiskusage.C

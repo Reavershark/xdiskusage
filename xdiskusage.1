@@ -1,12 +1,12 @@
 .\"Man page for xdiskusage, by Bill Spitzak.
-.TH seahaven 1 "23 Dec 1998"
+.TH xdiskusage 1 "23 Dec 1998"
 .SH NAME
 \fIxdiskusage\fR - Grapical display of disk usage
 .SH SYNOPSIS
 .B xdiskusage
-[-d[isplay] host:n.n] [-g[eometry] WxH+X+Y]
+[-a] [-d[isplay] host:n.n] [-g[eometry] WxH+X+Y]
 [-t[itle] windowtitle] [-n[ame] classname] [-i[conic]]
-[-fg color] [-bg color] [-bg2 color]
+[-fg color] [-bg color] [-bg2 color] [directory...] [file...]
 .SH DESCRIPTION
 .I xdiskusage
 displays the output of "du" in an X window, allowing you to
@@ -16,45 +16,67 @@ This program was inspired by, and the user interface design copied
 from, the "xdu" program written by Phillip C. Dykstra
 <phil@arl.army.mil>
 
-.SH MAIN WINDOW
+.SH USAGE
 
-When you run it it presents you with a list of all the disks mounted
-on your system (it found these by running "df").  Click one of these
-names and it will scan the entire disk (by running "du") and present a
-graphical display of how much space all the files are taking on that
-disk.
+Typing "xdiskusage dir" where "dir" is a directory causes "du" to be
+run on that directory and the result displayed.  If the named file is
+a symbolic link it is dereferenced before being sent to du. The "-a"
+switch, if given, is passed to "du" to cause all files to be measured.
+
+Typing "xdiskusage file" where "file" is not a directory makes
+xdiskusage parse that file as though it was "du" output and display
+the result.
+
+You can type several file and directory names and get several display
+windows.
+
+If no files are named, you can pipe the output from another program to
+xdiskusage. If stdin is not a terminal xdiskusage will parse it as "du"
+output and display the result.
+
+Typing just "xdiskusage" brings up the disk browser described here:
+
+.SH DISK BROWSER
+
+By default xdiskusage presents you with a list of all the disks
+mounted on your system (it found these by running "df").  Click one of
+these names and it will scan the entire disk (by running "du") and
+present a graphical display of how much space all the files are taking
+on that disk.
 
 You can click on several disks (or on the same disk multiple times,
 for instance if you have changed the files stored on it) and get
 multiple display windows.
 
 The "rescan" button reruns "df" to get a new list of disks.  You need
-to do this if you mount or unmount a disk.
+to do this if you mount or unmount a disk, or to see new usage
+percentages.
 
-The copyright button shows you the copyright.
+The (C) button shows you the copyright and license.
 
-You can also type in a pathname.  This is passed to "du" and can be
-used if you are only interested in the space used by a certain
-subdirectory.  Use of this field will prevent xdiskusage from showing
-the (free) and (?) space.  If the named file is a symbolic link it is
-dereferenced before being sent to du.
+You can type a filename into the input field on the bottom and type
+Enter. If the name is a directory, xdiskusage will attempt to run "du"
+on it and display the result. If the name is a file it is assummed to
+be "du" output and it is parsed and displayed.
 
 The "all files" button sends the -a switch to "du" causing it to list
 the space for every file on the disk.  This can significantly increase
 the time it takes to scan.
 
-.SH DISK USAGE WINDOW
+.SH DISPLAY
 
 Each white box represents a directory.  It's size is equal to the sum
 of all it's contents (all subdirectories and files).  To the right of
-each box are stacked the boxes for the subdirectories.
+each box are stacked the boxes for the subdirectories (and files if
+the "all files" switch was given).
 
-If you selected a disk two special boxes are added: "(free)" is the
-free space on the disk, and "(?)" is the difference between what du
-reports and what is actually free (I think this is both unreadable
-directories due to protection violations and the space needed to store
-the directories themselves).  You may also see "(files)" which are
-files in the root directory of the disk.
+If you selected a disk from the disk browser, some extra boxes are
+added to show information learned from df.  "(free)" is the free space
+reported by df.  "(permission denied)" is space that df said was used
+but du did not report (this may be due to other errors, but
+permission errors are the normal reason).  "(inodes)" is the
+difference between the total size of the disk and the used + available
+space reported by du, this is overhead used by the file system.
 
 The left-most box is the "current directory".
 
@@ -114,14 +136,12 @@ choose) or send it to a file.
 
 .SH BUGS
 
-Should be able to name the disk as a command line option.
-
 Gets confused by "df" output on some platforms, requiring
 platform-specific code.
 
 .SH COPYRIGHT
 
-Copyright (C) 1998 Bill Spitzak
+Copyright (C) 2000 Bill Spitzak
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
