@@ -470,7 +470,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
   totals[0] = 0;
   int currentdepth = 0;
 
-  for (;;) {
+  for (size_t line_no = 1;; ++line_no) {
     if (!(path && true_file)) Fl::check();
     if (cancelled) {
       delete_tree(root);
@@ -483,16 +483,33 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
       return 0;
     }
 
+    // FIXME: don't limit line length to 1024
     if (!fgets(buffer, 1024, f)) break;
 
+    // If the line was longer than the maximum, warn about it,
+    // and discard the rest of the line.
+    size_t len = strlen (buffer);
+    if (buffer[len-1] != '\n')
+      {
+	fprintf (stderr, "%s:%d: line too long, skipping it\n", path, line_no);
+	// Read until end of line or EOF.
+	while (1)
+	  {
+	    char c = getc (f);
+	    if (c == '\n' || c == EOF)
+	      break;
+	  }
+	continue;
+      }
+
     // null-terminate the line:
-    char* p = buffer+strlen(buffer);
+    char* p = buffer+len;
     if (p > buffer && p[-1] == '\n') p[-1] = 0;
 
     ulong size = strtoul(buffer, &p, 10);
     if (!isspace(*p) || p == buffer) {
       if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
-      fl_alert("%s does not look like du output", path);
+      fl_alert("%s:%d: does not look like du output: %s", path, line_no, p);
       cancelled = 1;
       continue;
     }
