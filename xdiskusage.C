@@ -1,7 +1,7 @@
 // xdiskusage.C
 
 const char* copyright = 
-"xdiskusage version 1.4\n"
+"xdiskusage version 1.41\n"
 "Copyright (C) 2000 Bill Spitzak    spitzak@d2.com\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
@@ -111,8 +111,12 @@ void reload_cb(Fl_Button*, void*) {
 
   for (Disk* d = firstdisk; d; d = d->next) {
     char buf[512];
-    int pct = int((d->used*100+d->used/2)/(d->used+d->avail));
-    if (!pct && d->used) pct = 1;
+    int pct;
+    if (!(d->used + d->avail)) pct = 0;
+    else {
+      pct = int((d->used*100+d->used/2)/(d->used+d->avail));
+      if (!pct && d->used) pct = 1;
+    }
     sprintf(buf, "@b%s\t@r%s %2d%%\n", d->mount, formatk(d->total), pct);
     disk_browser->add(buf);
   }
@@ -639,11 +643,14 @@ void Display::setroot(Node* n, int newdepth) {
   current_root = n;
   depth = newdepth;
   char buffer[1024];
+  buffer[0] = 0;
   char* p = buffer;
   for (int i = 0; i < depth; i++) {
     const char* q = parents[i]->name;
-    while (*q) *p++ = *q++;
-    if (p[-1] != '/') *p++ = '/';
+    if (q && *q) {
+      while (*q) *p++ = *q++;
+      if (p[-1] != '/') *p++ = '/';
+    }
   }
   strcpy(p,n->name);
   label(buffer);
