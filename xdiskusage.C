@@ -1,7 +1,7 @@
 // xdiskusage.C
 
 const char* copyright = 
-"xdiskusage version 1.45\n"
+"xdiskusage version 1.46\n"
 "Copyright (C) 2003 Bill Spitzak\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
@@ -125,7 +125,7 @@ void reload_cb(Fl_Button*, void*) {
       if (!pct && d->used) pct = 1;
     }
 #if FL_MAJOR_VERSION > 1
-    sprintf(buf, "@b;%s\t@r;%s %2d%%", d->mount, formatk(d->total), pct);
+    sprintf(buf, "@b;%s\t@n;%s %2d%% full", d->mount, formatk(d->total), pct);
 #else
     sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
 #endif
@@ -165,7 +165,7 @@ struct Node {
 int window_w = 600;
 int window_h = 480;
 int ncols = 5;
-#define MAXDEPTH 80
+#define MAXDEPTH 100
 
 class OutputWindow : public Fl_Window {
   void draw();
@@ -173,21 +173,26 @@ class OutputWindow : public Fl_Window {
   void resize(int,int,int,int);
   Node* root;
   Node* current_root;
-  Node* parents[MAXDEPTH];
-  int depth;
+  Node* path[MAXDEPTH];
+  Node* current_node;
+  int root_depth;
+  int current_depth;
   int ncols;
   Fl_Menu_Button menu_button;
   OutputWindow(int w, int h, const char* l) : Fl_Window(w,h,l),
-    menu_button(0,0,w,h) {}
+    menu_button(0,0,w,h) {box(FL_NO_BOX);}
+  void finish_drawn_row();
   void draw_tree(Node* n, int column, ulong row, double scale);
   void print_tree(FILE* f, Node* n, int column, ulong row, double scale, int W, int H);
-  void setroot(Node* n, int depth);
+  void setcurrent(Node*, int);
+  void setroot(Node*, int);
 public:
   static void root_cb(Fl_Widget*, void*);
   static void out_cb(Fl_Widget*, void*);
   static void in_cb(Fl_Widget*, void*);
   static void next_cb(Fl_Widget*, void*);
   static void previous_cb(Fl_Widget*, void*);
+  static void setroot_cb(Fl_Widget*, void*);
   static void sort_cb(Fl_Widget* o, void*);
   static void columns_cb(Fl_Widget* o, void*);
   static void copy_cb(Fl_Widget* o, void*);
@@ -254,7 +259,7 @@ int main(int argc, char**argv) {
 
 void disk_browser_cb(Fl_Browser*b, void*) {
   int i = b->value();
-  printf("disk browser cb %d\n", i);
+  //printf("disk browser cb %d\n", i);
 #if FL_MAJOR_VERSION > 1
   if (i < 0) return;
 #else
@@ -323,11 +328,12 @@ Node* newnode(const char* name, ulong size, Node* parent, Node* & brother) {
 }
 
 static Fl_Menu_Item menutable[] = {
+  {"set root", '\r', OutputWindow::setroot_cb},
   {"in", FL_Right, OutputWindow::in_cb},
   {"next", FL_Down, OutputWindow::next_cb},
   {"previous", FL_Up, OutputWindow::previous_cb},
   {"out", FL_Left, OutputWindow::out_cb},
-  {"root", '/', OutputWindow::root_cb},
+  {"root out", '/', OutputWindow::root_cb},
   {"sort", 0, 0, 0, FL_SUBMENU},
     {"largest first", 's', OutputWindow::sort_cb, (void*)'s'},
     {"smallest first", 'r', OutputWindow::sort_cb, (void*)'r'},
@@ -598,101 +604,182 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
   d->menu_button.menu(menutable);
   d->menu_button.box(FL_NO_BOX);
   d->callback(close_cb);
-  d->depth = 0;
+  d->root_depth = 0;
+  d->current_node = d->root;
+  d->current_depth = 0;
 
   return d;
 }
 
+// These point at the top-left most pixel not drawn. This avoids drawing
+// over already made drawings:
+static int drawn_row;
+static int undrawn_column;
+
+// erase the reset of drawn_row
+void OutputWindow::finish_drawn_row() {
+  if (undrawn_column < w()) {
+    fl_color(color());
+    fl_rectf(undrawn_column, drawn_row, w()-undrawn_column, 1);
+  }
+}
+
+int depth(Node* m, int quit_after) {
+  int found = 0;
+  for (Node* c = m->child; c; c=c->brother) {
+    int t = depth(c, quit_after-1);
+    if (t > found) {found = t; if (found+1 >= quit_after) break;}
+  }
+  return found+1;
+}
+
+// Returns first pixel row not drawn into:
 void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale) {
-  if (!n || column >= ncols) return;
   int X = (w()-1)*column/ncols;
   int W = (w()-1)*(column+1)/ncols - X;
+  int Y = int(row*scale+.5);
   for (; n; n = n->brother) {
-    int Y,H;
-    if (n == current_root) {Y = 0; H = h()-1;}
-    else {Y = int(row*scale+.5); H = int((row+n->size)*scale+.5) - Y;}
+    int NEXTY;
+    if (n == current_root) NEXTY = h()-1;
+    else NEXTY = int((row+n->size)*scale+.5);
+    int H = NEXTY-Y;
+    // if we have gone to next pixel row, erase end of previous one:
+    if (Y > drawn_row) {
+      finish_drawn_row();
+      drawn_row = Y;
+      undrawn_column = X+1;
+    }
+    // anything more than 1 pixel tall draws a box:
     if (H > 1) {
       fl_color(FL_WHITE);
-      fl_rectf(X,Y,W,H);
+      fl_rectf(X+1,Y+1,W-1,H-1);
       fl_color(FL_BLACK);
-      fl_rect(X,Y,W+1,H+1);
-      if (H > 20) {
-	fl_draw(n->name, X, Y, W, H/2, FL_ALIGN_BOTTOM);
-	fl_draw(formatk(n->size), X, Y+H/2, W, H/2, FL_ALIGN_TOP);
-      } else if (H > 10) {
-	fl_draw(n->name, X, Y, W, H, FL_ALIGN_CENTER);
+      if (n->size*scale > 10) {
+	char buffer[256];
+	snprintf(buffer, 256, "%s%c%s", n->name,
+		 n->size*scale > 20 ? '\n' : ' ',
+		 formatk(n->size));
+	fl_draw(buffer, X+5, Y, W-5, H,
+		Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_CLIP));
       }
-      draw_tree(n->child, column+1, row, scale);
+      fl_rect(X,Y,W+1,H+1);
+      if (undrawn_column < X+W+1) undrawn_column = X+W+1;
+      if (column+1 < ncols) {
+	draw_tree(n->child, column+1, row, scale);
+	if (drawn_row < NEXTY) {
+	  finish_drawn_row(); drawn_row++;
+	  if (drawn_row < NEXTY) {
+	    fl_color(color());
+	    fl_rectf(X+W+1, drawn_row, w()-(X+W+1), NEXTY-drawn_row);
+	  }
+	  drawn_row = NEXTY;
+	  undrawn_column = X+W+1;
+	}
+      } else {
+	drawn_row = NEXTY;
+	undrawn_column = X+W+1;
+      }
+      if (n == current_node) {
+	fl_color(FL_RED);
+	fl_rect(X+1,Y+1,W-1,H-1);
+      }
     } else {
-      // draw a line for all children
-      int endcolumn = column+1;
-      for (Node* m = n->child; m && endcolumn < ncols; m=m->child) endcolumn++;
-      fl_color(FL_BLACK);
-      fl_line(X,Y,(w()-1)*endcolumn/ncols,Y);
+      // draw a line for children less than 2 pixels tall
+      int R = (w()-1)*(column+::depth(n,ncols-column))/ncols;
+      if (R >= undrawn_column) {
+	fl_color(FL_DARK3);
+	fl_rectf(undrawn_column, Y, R+1-undrawn_column, 1);
+	undrawn_column = R+1;
+      }
+      if (H > 0) {
+	finish_drawn_row();
+	fl_color(FL_DARK3);
+	fl_rectf(X+1, NEXTY, W+1, 1);
+	drawn_row = NEXTY;
+	undrawn_column = X+W+1;
+      }
+      if (n == current_node) {
+	fl_color(FL_RED);
+	fl_rectf(X,Y,W+1,H+1);
+      }
     }
-    if (n == current_root) return;
+    if (n == current_root) {finish_drawn_row(); break;}
     row += n->size;
+    Y = NEXTY;
   }
 }
 
 void OutputWindow::draw() {
-  fl_draw_box(box(),0,0,w(),h(),color());
+  //fl_draw_box(box(),0,0,w(),h(),color());
   double scale = (double)(h()-1)/current_root->size;
   fl_font(0,10);
+  drawn_row = undrawn_column = 0;
   draw_tree(current_root, 0, 0, scale);
 }
 
 int OutputWindow::handle(int event) {
   switch (event) {
   case FL_PUSH:
-    if (Fl::event_button() != 1) return Fl_Window::handle(event);
-    return 1;
   case FL_DRAG:
-    return 1;
   case FL_RELEASE:
     break;
   default:
     return Fl_Window::handle(event);
   }
-  // okay, it is a button-up, figure out what they clicked:
+  // Figure out what node we are pointing at:
   int X = Fl::event_x();
   int Y = Fl::event_y();
   if (X < 0 || X >= w() || Y < 0 || Y >= h()) return 1;
   int column = X * ncols / w();
-  if (!column) {
-    // clicked on left column, go up one
-    if (depth) setroot(parents[depth-1],depth-1);
-    return 1;
-  }
-  column += depth;
-  double scale = (double)(h()-1)/current_root->size;
-  Node* n = current_root;
-  int row = 0;
-  int d = depth;
-  while (d < column) {
-    parents[d] = n;
-    n = n->child;
-    for (; ; n = n->brother) {
-      if (!n) return 1;
-      int Y1 = int((row+n->size)*scale+.5);
-      if (Y < Y1) break;
-      row += n->size;
+  if (column <= 0) {
+    setcurrent(current_root, root_depth);
+  } else {
+    column += root_depth;
+    double scale = (double)(h()-1)/current_root->size;
+    Node* n = current_root;
+    int row = 0;
+    int d = root_depth;
+    while (n && d < column) {
+      path[d] = n;
+      n = n->child;
+      for (; n; n = n->brother) {
+	int Y1 = int((row+n->size)*scale+.5);
+	if (Y < Y1) break;
+	row += n->size;
+      }
+      d++;
     }
-    d++;
+    if (n) setcurrent(n,d);
   }
-  setroot(n,d);
+  // make menus popup now that we have current node:
+  if (event == FL_PUSH && Fl::event_button() != 1)
+    return Fl_Window::handle(event);
+  // double-click opens the item:
+  if (event == FL_RELEASE && Fl::event_clicks())
+    setroot(current_node, current_depth);
+  // otherwise just navigate to it:
   return 1;
+}
+
+void OutputWindow::setcurrent(Node* n, int newdepth) {
+  if (current_node == n) return;
+  current_node = n;
+  current_depth = newdepth;
+  if (newdepth <= root_depth) setroot(n, newdepth);
+  int m = current_depth-root_depth+1;
+  if (m > ncols) ncols = m;
+  redraw();
 }
 
 void OutputWindow::setroot(Node* n, int newdepth) {
   if (n == current_root) return;
   current_root = n;
-  depth = newdepth;
+  root_depth = newdepth;
   char buffer[1024];
   buffer[0] = 0;
   char* p = buffer;
-  for (int i = 0; i < depth; i++) {
-    const char* q = parents[i]->name;
+  for (int i = 0; i < root_depth; i++) {
+    const char* q = path[i]->name;
     if (q && *q) {
       while (*q) *p++ = *q++;
       if (p[-1] != '/') *p++ = '/';
@@ -700,6 +787,8 @@ void OutputWindow::setroot(Node* n, int newdepth) {
   }
   strcpy(p,n->name);
   label(buffer);
+  int m = current_depth-root_depth+1;
+  if (m > ncols) ncols = m;
   redraw();
 }
 
@@ -707,12 +796,12 @@ void OutputWindow::copy_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
   char buffer[1024];
   char* p = buffer;
-  for (int i = 0; i < d->depth; i++) {
-    const char* q = d->parents[i]->name;
+  for (int i = 0; i < d->current_depth; i++) {
+    const char* q = d->path[i]->name;
     while (*q) *p++ = *q++;
     if (p[-1] != '/') *p++ = '/';
   }
-  strcpy(p,d->current_root->name);
+  strcpy(p, d->current_node->name);
   Fl::selection(*d, buffer, strlen(buffer));
 }
   
@@ -720,33 +809,41 @@ OutputWindow::~OutputWindow() {
   delete_tree(root);
 }
 
+void OutputWindow::setroot_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
+  d->setroot(d->current_node, d->current_depth);
+}
+
 void OutputWindow::root_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  d->setroot(d->root, 0);
+  if (d->root_depth)
+    d->setroot(d->path[d->root_depth-1], d->root_depth-1);
 }
 void OutputWindow::out_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  if (d->depth) d->setroot(d->parents[d->depth-1], d->depth-1);
+  if (d->current_depth)
+    d->setcurrent(d->path[d->current_depth-1], d->current_depth-1);
 }
 void OutputWindow::in_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  if (d->current_root->child) {
-    d->parents[d->depth] = d->current_root;
-    d->setroot(d->current_root->child, d->depth+1);
+  if (d->current_node->child) {
+    d->path[d->current_depth] = d->current_node;
+    d->setcurrent(d->current_node->child, d->current_depth+1);
   }
 }
 void OutputWindow::next_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  if (d->current_root->brother)
-    d->setroot(d->current_root->brother, d->depth);
+  if (d->current_node->brother)
+    d->setcurrent(d->current_node->brother, d->current_depth);
 }
+
 void OutputWindow::previous_cb(Fl_Widget* o, void*) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  if (!d->depth) return;
-  Node* n = d->parents[d->depth-1]->child;
+  if (!d->current_depth) return;
+  Node* n = d->path[d->current_depth-1]->child;
   while (n) {
-    if (n->brother == d->current_root) {
-      d->setroot(n, d->depth);
+    if (n->brother == d->current_node) {
+      d->setcurrent(n, d->current_depth);
       return;
     }
     n = n->brother;
@@ -798,8 +895,13 @@ void OutputWindow::sort_cb(Fl_Widget* o, void*v) {
 void OutputWindow::columns_cb(Fl_Widget* o, void*v) {
   OutputWindow* d = (OutputWindow*)(o->window());
   int n = (int)v;
+  ::ncols = n;
   if (n == d->ncols) return;
-  ::ncols = d->ncols = n;
+  if (d->current_depth > d->root_depth+n-1) {
+    d->current_depth = d->root_depth+n-1;
+    d->current_node = d->path[d->current_depth];
+  }
+  d->ncols = n;
   d->redraw();
 }
 
@@ -823,10 +925,14 @@ void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row, double scal
     else {Y = row*scale; H = n->size*scale;}
     fprintf(f, "%d %g %d %g rect", X, -Y, W, -H);
     if (H > 20) {
-      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2, n->name);
-      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-10,formatk(n->size));
+      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2+2, n->name);
+      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-8, formatk(n->size));
     } else if (H > 10) {
-      fprintf(f, " %d %g moveto (%s) show", X+5, -Y-H/2-4, n->name);
+      fprintf(f, " %d %g moveto (%s %s) show", X+5, -Y-H/2-4, n->name, formatk(n->size));
+    } else if (H > 2) {
+      fprintf(f, " /Helvetica findfont %g scalefont setfont\n", H*0.95);
+      fprintf(f, " %d %g moveto (%s %s) show\n", X+5, -Y-H*0.85, n->name, formatk(n->size));
+      fprintf(f, " /Helvetica findfont 10 scalefont setfont");
     }
     fprintf(f, "\n");
     print_tree(f, n->child, column+1, row, scale, bboxw, bboxh);

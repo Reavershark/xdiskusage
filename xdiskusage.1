@@ -1,5 +1,5 @@
 .\"Man page for xdiskusage, by Bill Spitzak.
-.TH xdiskusage 1 "23 Dec 1998"
+.TH xdiskusage 1 "4 Sep 2003"
 .SH NAME
 \fIxdiskusage\fR - Grapical display of disk usage
 .SH SYNOPSIS
@@ -12,27 +12,23 @@
 displays the output of "du" in an X window, allowing you to
 graphically compare the sizes that the files and directories take.
 
-This program was inspired by, and the user interface design copied
-from, the "xdu" program written by Phillip C. Dykstra
-<phil@arl.army.mil>
-
 .SH USAGE
 
-Typing "xdiskusage dir" where "dir" is a directory causes "du" to be
-run on that directory and the result displayed.  If the named file is
+Typing "xdiskusage dir" where "dir" is a folder causes "du" to be
+run on that folder and the result displayed.  If the named file is
 a symbolic link it is dereferenced before being sent to du. The "-a"
 switch, if given, is passed to "du" to cause all files to be measured.
 
-Typing "xdiskusage file" where "file" is not a directory makes
+Typing "xdiskusage file" where "file" is not a folder makes
 xdiskusage parse that file as though it was "du" output and display
 the result.
 
-You can type several file and directory names and get several display
+You can type several file and folder names and get several display
 windows.
 
 If no files are named, you can pipe the output from another program to
 xdiskusage. If stdin is not a terminal xdiskusage will parse it as "du"
-output and display the result.
+output and display the result. For instance "du -k . | xdiskusage".
 
 Typing just "xdiskusage" brings up the disk browser described here:
 
@@ -65,25 +61,37 @@ the time it takes to scan.
 
 .SH DISPLAY
 
-Each white box represents a directory.  It's size is equal to the sum
-of all it's contents (all subdirectories and files).  To the right of
-each box are stacked the boxes for the subdirectories (and files if
+Each white box represents a folder.  It's size is equal to the sum
+of all it's contents (all sub-folders and files).  To the right of
+each box are stacked the boxes for the sub-folders (and files if
 the "all files" switch was given).
 
 If you selected a disk from the disk browser, some extra boxes are
-added to show information learned from df.  "(free)" is the free space
-reported by df.  "(permission denied)" is space that df said was used
-but du did not report (this may be due to other errors, but
-permission errors are the normal reason).  "(inodes)" is the
-difference between the total size of the disk and the used + available
-space reported by du, this is overhead used by the file system.
+added to show information learned from df:
 
-The left-most box is the "current directory".
+  "(free)" is the free space reported by df.
 
-Clicking on any box makes it the current directory: putting it on the
-left edge and blowing it up to the height of the window and scaling
-all it's contents the same.  Clicking on the current directory goes up
-to it's parent directory.
+  "(permission denied)" is space that df said was used but du did not
+  report. Besides permission errors when running du, this may also be
+  the result of a file deleted from its containing folder, but still
+  in use by a program, so its space is not reclaimed yet. Mounted
+  loopback filesystems (ISO image just checked before burning, then
+  deleted while still mounted) are common examples.
+
+  "(inodes)" is the difference between the total size of the disk and
+  the used + available space reported by du, this is overhead used by
+  the file system.
+
+The left-most box is the "current root". One of the boxes is outlined
+in red, this is the "current node".
+
+Clicking on any box makes it the current node. The arrow keys can also
+be used to navigate you around. Hitting return makes the current node
+be the current root: putting it on the left edge and blowing it up to
+the height of the window and scaling all it's contents the same. The
+left arrow can be used to move the root and current node back up, or
+you can type '/' to move just the root, leaving the current node where
+it is.
 
 To dismiss any window type Escape.
 
@@ -93,19 +101,19 @@ There is a pop-up menu on the right-hand mouse button.  Every item on
 the menu has a keyboard shortcut.  The menu items are:
 
 .B In (right arrow)
-go to the first child of the current directory.
+go to the first child of the current folder.
 
 .B Next (down arrow)
-go down to brother of current directory.
+go down to brother of current folder.
 
 .B Previous (up arrow)
-go up to the brother of current directory.
+go up to the brother of current folder.
 
 .B Out (left arrow)
-go to parent of current directory.
+go to parent of current folder.
 
-.B Root (slash)
-put the current directory back to the outermost one
+.B Root out (slash)
+move the root of the window up to it's parent.
 
 .B Sort/Largest (s)
 sort largest size at the top
@@ -126,7 +134,7 @@ sort in the order read from du.
 arrange display to have N columns.
 
 .B Copy to Clipboard (c)
-the pathname of the current directory is put in the X clipboard (you
+the pathname of the current node is put in the X clipboard (you
 can then paste it into a shell command).
 
 .B Print (p)
@@ -139,9 +147,18 @@ choose) or send it to a file.
 Gets confused by "df" output on some platforms, requiring
 platform-specific code.
 
+.SH ACKNOWLEDGEMENTS
+
+This program was inspired by, and the user interface design copied
+from, the "xdu" program written by Phillip C. Dykstra.
+<dykstra at ieee dot org> <phil at arl dot army dot mil>
+
+Stephane Gourichon contributed many suggested improvements.
+<stephane dot gourichon at lip6 dot fr>
+
 .SH COPYRIGHT
 
-Copyright (C) 2000 Bill Spitzak
+Copyright (C) 2003 Bill Spitzak
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -160,4 +177,4 @@ USA.
 
 .SH AUTHORS
 
-Written by Bill Spitzak		spitzak@d2.com
+Written by Bill Spitzak		spitzak at dee two dot com
