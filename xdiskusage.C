@@ -449,14 +449,14 @@ Display* Display::make(const char* path, Disk* disk) {
     if (p > buffer && p[-1] == '\n') p[-1] = 0;
 
     ulong size = strtoul(buffer, &p, 10);
-    while (isspace(*p)) p++;
-    if (!size) {
-      if (!true_file) continue;
+    if (!isspace(*p) || p == buffer) {
       if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
       fl_alert("%s does not look like du output", path);
       cancelled = 1;
       continue;
     }
+
+    while (isspace(*p)) p++;
 
     // split the path into parts:
     int newdepth = 0;
@@ -502,6 +502,7 @@ Display* Display::make(const char* path, Disk* disk) {
     wait_slider->value(disk ? (double)runningtotal/disk->used :
 		       (double)(ordinal%1024)/1024);
   }
+  if (!root->name) root->name = strdup(path);
 
   if (true_file) {
     if (path) fclose(f);
