@@ -197,11 +197,18 @@ public:
   ~OutputWindow();
 };
 
-int all_files;
+int all_files, quiet;
 int arg_cb(int, char **argv, int &i) {
   const char *s = argv[i];
-  if (s && s[0] == '-' && s[1] == 'a') {all_files = 1; i++; return 1;}
-  return 0;
+  if (!s) return 0;
+  if (*s != '-') return 0;
+  for (s++; *s; s++) {
+    if (*s == 'a') all_files = 1;
+    else if (*s == 'q') quiet = 1;
+    else return 0;
+  }
+  i++;
+  return 1;
 }
 
 int main(int argc, char**argv) {
@@ -222,6 +229,7 @@ int main(int argc, char**argv) {
 "xdiskusage file...	assume the file contains du output\n"
 "du ... | xdiskusage	pipe du output to xdiskusage\n"
 " -a	show all files\n"
+" -q	(quiet) don't show the progress slider\n"
 "%s\n"
 " -help\n", Fl::help);
 	return 1;
@@ -426,7 +434,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
   wait_slider->color(0);
   wait_slider->selection_color(12);
 #endif
-  if (!(path && true_file)) {
+  if (!quiet && !(path && true_file)) {
     wait_window->show();
     while (wait_window->damage()) Fl::wait(.1);
   }
@@ -518,10 +526,12 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 
     // percent done is rounded to nearest pixel so slider does
     // not continuousely redraw:
-    double v = disk ? (double)runningtotal/disk->used :
-      (double)(ordinal%1024)/1024;
-    v = rint(v*wait_slider->w())/wait_slider->w();
-    wait_slider->value(v);
+    if (!quiet) {
+      double v = disk ? (double)runningtotal/disk->used :
+	(double)(ordinal%1024)/1024;
+      v = rint(v*wait_slider->w())/wait_slider->w();
+      wait_slider->value(v);
+    }
   }
   if (!root->name && path) root->name = strdup(path);
 
