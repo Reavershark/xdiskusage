@@ -6,6 +6,8 @@ VERSION = 1.43
 CXXFILES = panels.C xdiskusage.C
 
 LIBS = -lfltk
+# You may need this to link with a shared version of fltk:
+#LIBS = -lfltk -lGL -lGLU -lglut
 
 MANPAGE = 1
 
@@ -54,7 +56,7 @@ uninstall:
 dist:
 	cat /dev/null > makedepend
 	-@mkdir $(PROGRAM)-$(VERSION)
-	-@ln README Makefile configure install-sh makedepend *.C *.H *.in *.fl $(PROGRAM).$(MANPAGE) $(PROGRAM)-$(VERSION)
+	-@ln README Makefile configure install-sh makedepend *.C *.H *.in *.fl $(PROGRAM).spec $(PROGRAM).$(MANPAGE) $(PROGRAM)-$(VERSION)
 	tar -cvzf $(PROGRAM)-$(VERSION).tgz $(PROGRAM)-$(VERSION)
 	-@rm -r $(PROGRAM)-$(VERSION)
 
