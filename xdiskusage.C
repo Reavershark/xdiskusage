@@ -48,6 +48,7 @@ const char* copyright =
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Menu_Button.H>
 #include <FL/fl_ask.H>
+#include <FL/math.h>
 
 typedef unsigned long ulong;
 
@@ -124,7 +125,7 @@ void reload_cb(Fl_Button*, void*) {
       if (!pct && d->used) pct = 1;
     }
 #if FL_MAJOR_VERSION > 1
-    sprintf(buf, "%s\t%s %2d%%", d->mount, formatk(d->total), pct);
+    sprintf(buf, "@b;%s\t@r;%s %2d%%", d->mount, formatk(d->total), pct);
 #else
     sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
 #endif
@@ -166,7 +167,7 @@ int window_h = 480;
 int ncols = 5;
 #define MAXDEPTH 80
 
-class Display : public Fl_Window {
+class OutputWindow : public Fl_Window {
   void draw();
   int handle(int);
   void resize(int,int,int,int);
@@ -176,7 +177,7 @@ class Display : public Fl_Window {
   int depth;
   int ncols;
   Fl_Menu_Button menu_button;
-  Display(int w, int h, const char* l) : Fl_Window(w,h,l),
+  OutputWindow(int w, int h, const char* l) : Fl_Window(w,h,l),
     menu_button(0,0,w,h) {}
   void draw_tree(Node* n, int column, ulong row, double scale);
   void print_tree(FILE* f, Node* n, int column, ulong row, double scale, int W, int H);
@@ -192,8 +193,8 @@ public:
   static void copy_cb(Fl_Widget* o, void*);
   static void print_cb(Fl_Widget* o, void*);
   static Node* sort(Node* n, int (*compare)(const Node*, const Node*));
-  static Display* make(const char*, Disk* = 0);
-  ~Display();
+  static OutputWindow* make(const char*, Disk* = 0);
+  ~OutputWindow();
 };
 
 int all_files;
@@ -220,17 +221,19 @@ int main(int argc, char**argv) {
 "xdiskusage directory...	run du on each named directory\n"
 "xdiskusage file...	assume the file contains du output\n"
 "du ... | xdiskusage	pipe du output to xdiskusage\n"
-" -a	show all files\n%s\n -help\n", Fl::help);
+" -a	show all files\n"
+"%s\n"
+" -help\n", Fl::help);
 	return 1;
       }
     }
     while (n < argc) {
-      Display* d = Display::make(argv[n++]);
+      OutputWindow* d = OutputWindow::make(argv[n++]);
       if (d) d->show(argc,argv);
     }
   } else if (!isatty(0)) {
     // test for pipe, if so read stdin:
-    Display* d = Display::make(0);
+    OutputWindow* d = OutputWindow::make(0);
     if (d) d->show(argc,argv);
   } else {
     // normal gui:
@@ -252,7 +255,7 @@ void disk_browser_cb(Fl_Browser*b, void*) {
   Disk* d;
   for (d = firstdisk; i > 0; i--) d = d->next;
   all_files = all_files_button->value();
-  Display* w = Display::make(d->mount, d);
+  OutputWindow* w = OutputWindow::make(d->mount, d);
   if (w) w->show();
   //b->value(0);
 }
@@ -261,12 +264,12 @@ void disk_browser_cb(Fl_Browser*b, void*) {
 
 void disk_input_cb(Fl_Input* i, void*) {
   all_files = all_files_button->value();
-  Display* w = Display::make(i->value(), 0);
+  OutputWindow* w = OutputWindow::make(i->value(), 0);
   if (w) w->show();
 }
 
 void close_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)o;
+  OutputWindow* d = (OutputWindow*)o;
   delete d;
 }
 
@@ -312,32 +315,32 @@ Node* newnode(const char* name, ulong size, Node* parent, Node* & brother) {
 }
 
 static Fl_Menu_Item menutable[] = {
-  {"in", FL_Right, Display::in_cb},
-  {"next", FL_Down, Display::next_cb},
-  {"previous", FL_Up, Display::previous_cb},
-  {"out", FL_Left, Display::out_cb},
-  {"root", '/', Display::root_cb},
+  {"in", FL_Right, OutputWindow::in_cb},
+  {"next", FL_Down, OutputWindow::next_cb},
+  {"previous", FL_Up, OutputWindow::previous_cb},
+  {"out", FL_Left, OutputWindow::out_cb},
+  {"root", '/', OutputWindow::root_cb},
   {"sort", 0, 0, 0, FL_SUBMENU},
-    {"largest first", 's', Display::sort_cb, (void*)'s'},
-    {"smallest first", 'r', Display::sort_cb, (void*)'r'},
-    {"alphabetical", 'a', Display::sort_cb, (void*)'a'},
-    {"reverse alphabetical", 'z', Display::sort_cb, (void*)'z'},
-    {"unsorted", 'u', Display::sort_cb, (void*)'u'},
+    {"largest first", 's', OutputWindow::sort_cb, (void*)'s'},
+    {"smallest first", 'r', OutputWindow::sort_cb, (void*)'r'},
+    {"alphabetical", 'a', OutputWindow::sort_cb, (void*)'a'},
+    {"reverse alphabetical", 'z', OutputWindow::sort_cb, (void*)'z'},
+    {"unsorted", 'u', OutputWindow::sort_cb, (void*)'u'},
     {0},
   {"columns", 0, 0, 0, FL_SUBMENU},
-    {"2", '2', Display::columns_cb, (void*)2},
-    {"3", '3', Display::columns_cb, (void*)3},
-    {"4", '4', Display::columns_cb, (void*)4},
-    {"5", '5', Display::columns_cb, (void*)5},
-    {"6", '6', Display::columns_cb, (void*)6},
-    {"7", '7', Display::columns_cb, (void*)7},
-    {"8", '8', Display::columns_cb, (void*)8},
-    {"9", '9', Display::columns_cb, (void*)9},
-    {"10", '0', Display::columns_cb, (void*)10},
-    {"11", '1', Display::columns_cb, (void*)11},
+    {"2", '2', OutputWindow::columns_cb, (void*)2},
+    {"3", '3', OutputWindow::columns_cb, (void*)3},
+    {"4", '4', OutputWindow::columns_cb, (void*)4},
+    {"5", '5', OutputWindow::columns_cb, (void*)5},
+    {"6", '6', OutputWindow::columns_cb, (void*)6},
+    {"7", '7', OutputWindow::columns_cb, (void*)7},
+    {"8", '8', OutputWindow::columns_cb, (void*)8},
+    {"9", '9', OutputWindow::columns_cb, (void*)9},
+    {"10", '0', OutputWindow::columns_cb, (void*)10},
+    {"11", '1', OutputWindow::columns_cb, (void*)11},
     {0},
-  {"copy to clipboard", 'c', Display::copy_cb},
-  {"print", 'p', Display::print_cb},
+  {"copy to clipboard", 'c', OutputWindow::copy_cb},
+  {"print", 'p', OutputWindow::print_cb},
   {0}
 };
 
@@ -345,7 +348,7 @@ static int largestfirst(const Node* a, const Node* b) {
   return (a->size > b->size) ? -1 : 1;
 }
 
-Display* Display::make(const char* path, Disk* disk) {
+OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 
   cancelled = 0;
 
@@ -418,6 +421,11 @@ Display* Display::make(const char* path, Disk* disk) {
   if (!wait_window) make_wait_window();
   wait_slider->type(disk ? FL_HOR_FILL_SLIDER : FL_HOR_SLIDER);
   wait_slider->value(0.0);
+#if FL_MAJOR_VERSION > 1
+  wait_slider->box(FL_DOWN_BOX);
+  wait_slider->color(0);
+  wait_slider->selection_color(12);
+#endif
   if (!(path && true_file)) {
     wait_window->show();
     while (wait_window->damage()) Fl::wait(.1);
@@ -508,8 +516,12 @@ Display* Display::make(const char* path, Disk* disk) {
     currentdepth = newdepth;
     totals[newdepth] = runningtotal;
 
-    wait_slider->value(disk ? (double)runningtotal/disk->used :
-		       (double)(ordinal%1024)/1024);
+    // percent done is rounded to nearest pixel so slider does
+    // not continuousely redraw:
+    double v = disk ? (double)runningtotal/disk->used :
+      (double)(ordinal%1024)/1024;
+    v = rint(v*wait_slider->w())/wait_slider->w();
+    wait_slider->value(v);
   }
   if (!root->name && path) root->name = strdup(path);
 
@@ -569,7 +581,7 @@ Display* Display::make(const char* path, Disk* disk) {
 
   root->size = runningtotal;
 
-  Display* d = new Display(window_w, window_h, root->name);
+  OutputWindow* d = new OutputWindow(window_w, window_h, root->name);
   d->ncols = ::ncols;
   d->root = d->current_root = sort(root, largestfirst);
   d->resizable(d);
@@ -581,7 +593,7 @@ Display* Display::make(const char* path, Disk* disk) {
   return d;
 }
 
-void Display::draw_tree(Node* n, int column, ulong row, double scale) {
+void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale) {
   if (!n || column >= ncols) return;
   int X = (w()-1)*column/ncols;
   int W = (w()-1)*(column+1)/ncols - X;
@@ -613,14 +625,14 @@ void Display::draw_tree(Node* n, int column, ulong row, double scale) {
   }
 }
 
-void Display::draw() {
+void OutputWindow::draw() {
   fl_draw_box(box(),0,0,w(),h(),color());
   double scale = (double)(h()-1)/current_root->size;
   fl_font(0,10);
   draw_tree(current_root, 0, 0, scale);
 }
 
-int Display::handle(int event) {
+int OutputWindow::handle(int event) {
   switch (event) {
   case FL_PUSH:
     if (Fl::event_button() != 1) return Fl_Window::handle(event);
@@ -662,7 +674,7 @@ int Display::handle(int event) {
   return 1;
 }
 
-void Display::setroot(Node* n, int newdepth) {
+void OutputWindow::setroot(Node* n, int newdepth) {
   if (n == current_root) return;
   current_root = n;
   depth = newdepth;
@@ -681,8 +693,8 @@ void Display::setroot(Node* n, int newdepth) {
   redraw();
 }
 
-void Display::copy_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::copy_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   char buffer[1024];
   char* p = buffer;
   for (int i = 0; i < d->depth; i++) {
@@ -694,32 +706,32 @@ void Display::copy_cb(Fl_Widget* o, void*) {
   Fl::selection(*d, buffer, strlen(buffer));
 }
   
-Display::~Display() {
+OutputWindow::~OutputWindow() {
   delete_tree(root);
 }
 
-void Display::root_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::root_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   d->setroot(d->root, 0);
 }
-void Display::out_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::out_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   if (d->depth) d->setroot(d->parents[d->depth-1], d->depth-1);
 }
-void Display::in_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::in_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   if (d->current_root->child) {
     d->parents[d->depth] = d->current_root;
     d->setroot(d->current_root->child, d->depth+1);
   }
 }
-void Display::next_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::next_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   if (d->current_root->brother)
     d->setroot(d->current_root->brother, d->depth);
 }
-void Display::previous_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::previous_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   if (!d->depth) return;
   Node* n = d->parents[d->depth-1]->child;
   while (n) {
@@ -744,7 +756,7 @@ static int unsorted(const Node* a, const Node* b) {
   return (a->ordinal < b->ordinal) ? -1 : 1;
 }
 
-Node* Display::sort(Node* n, int (*compare)(const Node*, const Node*)) {
+Node* OutputWindow::sort(Node* n, int (*compare)(const Node*, const Node*)) {
   if (!n) return 0;
   Node* head = 0;
   while (n) {
@@ -759,8 +771,8 @@ Node* Display::sort(Node* n, int (*compare)(const Node*, const Node*)) {
   return head;
 }
 
-void Display::sort_cb(Fl_Widget* o, void*v) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::sort_cb(Fl_Widget* o, void*v) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   int (*compare)(const Node*, const Node*);
   switch ((int)v) {
   case 's': compare = largestfirst; break;
@@ -773,15 +785,15 @@ void Display::sort_cb(Fl_Widget* o, void*v) {
   d->redraw();
 }
 
-void Display::columns_cb(Fl_Widget* o, void*v) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::columns_cb(Fl_Widget* o, void*v) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   int n = (int)v;
   if (n == d->ncols) return;
   ::ncols = d->ncols = n;
   d->redraw();
 }
 
-void Display::resize(int X, int Y, int W, int H) {
+void OutputWindow::resize(int X, int Y, int W, int H) {
   window_w = W;
   window_h = H;
   Fl_Window::resize(X,Y,W,H);
@@ -790,7 +802,7 @@ void Display::resize(int X, int Y, int W, int H) {
 ////////////////////////////////////////////////////////////////
 // PostScript output
 
-void Display::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
+void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
 			 int bboxw, int bboxh) {
   if (!n || column >= ncols) return;
   int X = bboxw*column/ncols;
@@ -813,8 +825,8 @@ void Display::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
   }
 }
 
-void Display::print_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->window());
+void OutputWindow::print_cb(Fl_Widget* o, void*) {
+  OutputWindow* d = (OutputWindow*)(o->window());
   if (!print_panel) make_print_panel();
 #if FL_MAJOR_VERSION > 1
   print_panel->exec();
