@@ -27,7 +27,7 @@ const char* copyright =
 #elif defined(__bsdi__)
 # define DF_COMMAND "df"
 # define DU_COMMAND "du -x"
-#elif defined(SVR4)
+#elif defined(SVR4) || defined(__sun)
 # define DF_COMMAND "df -k"
 # define DU_COMMAND "du -kd"
 #else // linux and irix
@@ -502,7 +502,7 @@ Display* Display::make(const char* path, Disk* disk) {
     wait_slider->value(disk ? (double)runningtotal/disk->used :
 		       (double)(ordinal%1024)/1024);
   }
-  if (!root->name) root->name = strdup(path);
+  if (!root->name && path) root->name = strdup(path);
 
   if (true_file) {
     if (path) fclose(f);
