@@ -29,8 +29,8 @@ const char* copyright =
 # define DF_COMMAND "df"
 # define DU_COMMAND "du -x"
 #elif defined(SVR4) || defined(__sun)
-# define DF_COMMAND "df -k"
-# define DU_COMMAND "du -kd"
+# define DF_COMMAND "/bin/df -k"
+# define DU_COMMAND "/bin/du -kd"
 #else // linux and irix
 # define DF_COMMAND "df -k"
 # define DU_COMMAND "du -kx"
@@ -51,24 +51,24 @@ const char* copyright =
 #include <FL/fl_ask.H>
 #include <FL/math.h>
 
-typedef unsigned long ulong;
+typedef unsigned long long ull;
 
 // turn number of K into user-friendly text:
-const char* formatk(ulong k) {
+const char* formatk(ull k) {
   static char buffer[10];
   if (k >= 1024*1024*1024) sprintf(buffer,"%.4gT",(double)k/(1024*1024*1024));
   else if (k >= 1024*1024) sprintf(buffer,"%.4gG",(double)k/(1024*1024));
   else if (k >= 1024) sprintf(buffer,"%.4gM",(double)k/1024);
-  else sprintf(buffer,"%ldK",k);
+  else sprintf(buffer,"%.0fK",(double)k);
   return buffer;
 }
 
 // Holds data read from 'df' for each disk
 struct Disk {
   const char* mount;
-  ulong total;
-  ulong used;
-  ulong avail;
+  ull total;
+  ull used;
+  ull avail;
   Disk* next;
 };
 
@@ -101,9 +101,9 @@ void reload_cb(Fl_Button*, void*) {
     // ok we found a line with a /xyz at the end:
     Disk* d = new Disk;
     d->mount = strdup(word[n-1]);
-    d->total = strtol(word[n-5],0,10);
-    d->used=strtol(word[n-4],0,10);
-    d->avail=strtol(word[n-3],0,10);
+    d->total = strtoul(word[n-5],0,10);
+    d->used=strtoul(word[n-4],0,10);
+    d->avail=strtoul(word[n-3],0,10);
     *pointer = d;
     d->next = 0;
     pointer = &d->next;
@@ -119,7 +119,7 @@ void reload_cb(Fl_Button*, void*) {
   for (Disk* d = firstdisk; d; d = d->next) {
     char buf[512];
     int pct;
-    ulong sum = d->used + d->avail;
+    ull sum = d->used + d->avail;
     if (!sum) {
       pct = 100;
     } else {
@@ -169,7 +169,7 @@ struct Node {
   Node* child;
   Node* brother;
   const char* name;
-  ulong size;
+  ull size;
   long ordinal; // sign bit indicates hidden
   bool hidden() const {return ordinal < 0;}
 };
@@ -195,8 +195,8 @@ class OutputWindow : public Fl_Window {
   OutputWindow(int w, int h, const char* l) : Fl_Window(w,h,l),
     menu_button(0,0,w,h) {box(FL_NO_BOX);}
   void finish_drawn_row();
-  void draw_tree(Node* n, int column, ulong row, double scale, double offset);
-  void print_tree(FILE* f, Node* n, int column, ulong row, double scale, double offset, int W, int H);
+  void draw_tree(Node* n, int column, ull row, double scale, double offset);
+  void print_tree(FILE* f, Node* n, int column, ull row, double scale, double offset, int W, int H);
   void setcurrent(Node*, int);
   void setroot(Node*, int);
 public:
@@ -323,14 +323,14 @@ void delete_tree(Node* n) {
 // fill in missing totals by adding all sons:
 void fix_tree(Node* n) {
   if (n->size) return;
-  ulong total = 0;
+  ull total = 0;
   for (Node *x = n->child; x; x = x->brother) total += x->size;
   n->size = total;
 }
 
 static long ordinal;
 
-Node* newnode(const char* name, ulong size, Node* parent, Node* & brother) {
+Node* newnode(const char* name, ull size, Node* parent, Node* & brother) {
   Node* n = new Node;
   n->child = n->brother = 0;
   n->name = strdup(name);
@@ -473,8 +473,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
   ordinal = 0;
 
   Node* lastnode[MAXDEPTH];
-  ulong runningtotal;
-  ulong totals[MAXDEPTH];
+  ull runningtotal;
+  ull totals[MAXDEPTH];
   lastnode[0] = root;
   runningtotal = 0;
   totals[0] = 0;
@@ -524,7 +524,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     char* p = buffer+len;
     if (p > buffer && p[-1] == '\n') p[-1] = 0;
 
-    ulong size = strtoul(buffer, &p, 10);
+    ull size = strtoull(buffer, &p, 10);
     if (!isspace(*p) || p == buffer) {
       if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
       fl_alert("%s:%d: does not look like du output: %s",
@@ -560,7 +560,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 
     if (match == newdepth) {
       Node* p = lastnode[newdepth];
-      ulong t = totals[newdepth]+size;
+      ull t = totals[newdepth]+size;
       p->size = size;
       runningtotal = t;
     } else {
@@ -682,7 +682,7 @@ int depth(Node* m, int quit_after) {
 }
 
 // Returns first pixel row not drawn into:
-void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, double offset) {
+void OutputWindow::draw_tree(Node* n, int column, ull row, double scale, double offset) {
   int X = (w()-1)*column/ncols;
   int W = (w()-1)*(column+1)/ncols - X;
   int Y = int(row*scale+offset+.5);
@@ -731,7 +731,7 @@ void OutputWindow::draw_tree(Node* n, int column, ulong row, double scale, doubl
       if (undrawn_column < X+W+1) undrawn_column = X+W+1;
       if (column+1 < ncols) {
 	// figure out how much is not hidden:
-	ulong hidden = 0;
+	ull hidden = 0;
 	for (Node* c = n->child; c; c = c->brother)
 	  if (c->hidden()) hidden += c->size;
 	if (hidden > 0) {
@@ -816,11 +816,11 @@ int OutputWindow::handle(int event) {
     double scale = (double)(h()-1)/current_root->size;
     double offset = 0;
     Node* n = current_root;
-    ulong row = 0;
+    ull row = 0;
     int d = root_depth;
     while (n && d < column) {
       path[d] = n;
-      ulong hidden = 0;
+      ull hidden = 0;
       for (Node* c = n->child; c; c = c->brother)
 	if (c->hidden()) hidden += c->size;
       if (hidden >= n->size) {n = 0; break;}
@@ -1039,7 +1039,7 @@ void OutputWindow::resize(int X, int Y, int W, int H) {
 ////////////////////////////////////////////////////////////////
 // PostScript output
 
-void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row,
+void OutputWindow::print_tree(FILE*f,Node* n, int column, ull row,
 			      double scale, double offset,
 			      int bboxw, int bboxh)
 {
@@ -1063,7 +1063,7 @@ void OutputWindow::print_tree(FILE*f,Node* n, int column, ulong row,
     }
     fprintf(f, "\n");
     if (n->child && column+1 < ncols) {
-      ulong hidden = 0;
+      ull hidden = 0;
       for (Node* c = n->child; c; c = c->brother)
 	if (c->hidden()) hidden += c->size;
       if (hidden > 0) {
