@@ -39,7 +39,7 @@ Function {make_diskchooser()} {open
       callback {const char* c = fl_file_chooser("Directory:", 0, disk_input->value());
 if (c) disk_input->value(c);}
       xywh {350 200 40 25} labelsize 8
-      code0 {\#include <FL/fl_file_chooser.H>}
+      code0 {\#include <FL/Fl_File_Chooser.H>}
     }
     Fl_Check_Button {} {
       label {measure directories only}
@@ -101,7 +101,7 @@ Function {make_print_panel()} {open
       callback {const char* c = fl_file_chooser("Print to:", "*.ps", print_file_input->value());
 if (c) print_file_input->value(c);}
       xywh {300 65 36 25} labelsize 8
-      code0 {\#include <FL/fl_file_chooser.H>}
+      code0 {\#include <FL/Fl_File_Chooser.H>}
     }
     Fl_Group {} {open
       xywh {10 90 325 35} align 4

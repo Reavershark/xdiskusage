@@ -1,8 +1,8 @@
 // xdiskusage.C
 
 const char* copyright = 
-"xdiskusage version 1.44\n"
-"Copyright (C) 2000 Bill Spitzak    spitzak@d2.com\n"
+"xdiskusage version 1.45\n"
+"Copyright (C) 2003 Bill Spitzak\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify "
@@ -123,7 +123,11 @@ void reload_cb(Fl_Button*, void*) {
       pct = int((d->used*100+d->used/2)/sum);
       if (!pct && d->used) pct = 1;
     }
-    sprintf(buf, "@b%s\t@r%s %2d%%\n", d->mount, formatk(d->total), pct);
+#if FL_MAJOR_VERSION > 1
+    sprintf(buf, "%s\t%s %2d%%", d->mount, formatk(d->total), pct);
+#else
+    sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
+#endif
     disk_browser->add(buf);
   }
   disk_browser->position(0);
@@ -239,9 +243,14 @@ int main(int argc, char**argv) {
 
 void disk_browser_cb(Fl_Browser*b, void*) {
   int i = b->value();
-  if (!i) return;
+  printf("disk browser cb %d\n", i);
+#if FL_MAJOR_VERSION > 1
+  if (i < 0) return;
+#else
+  i--;
+#endif
   Disk* d;
-  for (d = firstdisk; i > 1; i--) d = d->next;
+  for (d = firstdisk; i > 0; i--) d = d->next;
   all_files = all_files_button->value();
   Display* w = Display::make(d->mount, d);
   if (w) w->show();
@@ -354,7 +363,7 @@ Display* Display::make(const char* path, Disk* disk) {
       // follow all symbolic links...
       strncpy(pathbuf, path, 1024);
       for (int i=0; i<10; i++) {
-	char *p = (char*)filename_name(pathbuf);
+	char *p = (char*)fl_filename_name(pathbuf);
 	int i = readlink(pathbuf, p, 1024-(p-pathbuf));
 	if (i < 0) {
 	  if (errno != EINVAL) {
@@ -673,7 +682,7 @@ void Display::setroot(Node* n, int newdepth) {
 }
 
 void Display::copy_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   char buffer[1024];
   char* p = buffer;
   for (int i = 0; i < d->depth; i++) {
@@ -690,27 +699,27 @@ Display::~Display() {
 }
 
 void Display::root_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   d->setroot(d->root, 0);
 }
 void Display::out_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   if (d->depth) d->setroot(d->parents[d->depth-1], d->depth-1);
 }
 void Display::in_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   if (d->current_root->child) {
     d->parents[d->depth] = d->current_root;
     d->setroot(d->current_root->child, d->depth+1);
   }
 }
 void Display::next_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   if (d->current_root->brother)
     d->setroot(d->current_root->brother, d->depth);
 }
 void Display::previous_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   if (!d->depth) return;
   Node* n = d->parents[d->depth-1]->child;
   while (n) {
@@ -751,7 +760,7 @@ Node* Display::sort(Node* n, int (*compare)(const Node*, const Node*)) {
 }
 
 void Display::sort_cb(Fl_Widget* o, void*v) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   int (*compare)(const Node*, const Node*);
   switch ((int)v) {
   case 's': compare = largestfirst; break;
@@ -765,7 +774,7 @@ void Display::sort_cb(Fl_Widget* o, void*v) {
 }
 
 void Display::columns_cb(Fl_Widget* o, void*v) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   int n = (int)v;
   if (n == d->ncols) return;
   ::ncols = d->ncols = n;
@@ -805,8 +814,11 @@ void Display::print_tree(FILE*f,Node* n, int column, ulong row, double scale,
 }
 
 void Display::print_cb(Fl_Widget* o, void*) {
-  Display* d = (Display*)(o->parent());
+  Display* d = (Display*)(o->window());
   if (!print_panel) make_print_panel();
+#if FL_MAJOR_VERSION > 1
+  print_panel->exec();
+#else
   print_panel->show();
   for (;;) {
     if (!print_panel->shown()) return;
@@ -818,6 +830,7 @@ void Display::print_cb(Fl_Widget* o, void*) {
     }
   }
   print_panel->hide();
+#endif
   FILE *f;
   if (print_file_button->value()) {
     f = fopen(print_file_input->value(), "w");
