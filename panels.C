@@ -8,7 +8,7 @@ Fl_Browser *disk_browser=(Fl_Browser *)0;
 
 Fl_Input *disk_input=(Fl_Input *)0;
 
-static void cb_x(Fl_Button*, void*) {
+static void cb_disk_browser(Fl_Button*, void*) {
   const char* c = fl_file_chooser("Directory:", 0, disk_input->value());
 if (c) disk_input->value(c);
 }
@@ -28,19 +28,19 @@ Fl_Window* make_diskchooser() {
     { Fl_Browser* o = disk_browser = new Fl_Browser(15, 30, 375, 150, "Pick a disk:");
       o->type(2);
       o->callback((Fl_Callback*)disk_browser_cb);
-      o->align(5);
+      o->align(FL_ALIGN_TOP_LEFT);
       Fl_Group::current()->resizable(o);
       static int widths[] = {200,0};
       o->column_widths(widths);
     }
     { Fl_Input* o = disk_input = new Fl_Input(15, 200, 345, 25, "Or type pathname in and hit Enter:");
       o->callback((Fl_Callback*)disk_input_cb);
-      o->align(5);
-      o->when(10);
+      o->align(FL_ALIGN_TOP_LEFT);
+      o->when(FL_WHEN_ENTER_KEY_ALWAYS);
       o->value("/");
     }
     { Fl_Button* o = new Fl_Button(360, 200, 30, 25, "...");
-      o->callback((Fl_Callback*)cb_x);
+      o->callback((Fl_Callback*)cb_disk_browser);
     }
     { Fl_Check_Button* o = new Fl_Check_Button(15, 225, 185, 25, "measure directories only");
       o->type(102);
@@ -69,7 +69,7 @@ Fl_Window* make_wait_window() {
       o->type(3);
       o->color(12);
       o->selection_color(47);
-      o->align(5);
+      o->align(FL_ALIGN_TOP_LEFT);
       Fl_Group::current()->resizable(o);
       o->set_output();
     }
@@ -114,7 +114,7 @@ Fl_Window* make_print_panel() {
     { Fl_Box* o = new Fl_Box(10, 5, 85, 25, "Print to:");
       o->labelfont(1);
       o->labelsize(18);
-      o->align(20);
+      o->align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
     }
     { Fl_Light_Button* o = new Fl_Light_Button(10, 35, 75, 25, "printer");
       o->type(102);
@@ -133,7 +133,7 @@ Fl_Window* make_print_panel() {
       o->callback((Fl_Callback*)cb_ff1b);
     }
     { Fl_Group* o = new Fl_Group(10, 100, 325, 25);
-      o->align(4);
+      o->align(FL_ALIGN_LEFT);
       { Fl_Check_Button* o = print_portrait_button = new Fl_Check_Button(10, 100, 80, 25, "portrait");
         o->type(102);
         o->down_box(FL_DIAMOND_DOWN_BOX);
@@ -146,7 +146,7 @@ Fl_Window* make_print_panel() {
       o->end();
     }
     { Fl_Group* o = new Fl_Group(10, 130, 330, 25);
-      o->align(4);
+      o->align(FL_ALIGN_LEFT);
       { Fl_Check_Button* o = fill_page_button = new Fl_Check_Button(10, 130, 150, 25, "reshape to fill page");
         o->type(102);
         o->down_box(FL_DIAMOND_DOWN_BOX);

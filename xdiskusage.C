@@ -39,6 +39,7 @@ const char* copyright =
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "panels.H"
 #include <FL/fl_draw.H>
@@ -65,17 +66,6 @@ struct Disk {
 };
 
 Disk* firstdisk;
-
-int main(int argc, char**argv) {
-
-  Fl::args(argc,argv);
-  make_diskchooser();
-
-  reload_cb(0,0);
-
-  disk_chooser->show(argc,argv);
-  return Fl::run();
-}
 
 void reload_cb(Fl_Button*, void*) {
   FILE* f = popen(DF_COMMAND, "r");
@@ -183,6 +173,18 @@ public:
   static Display* make(const char*, ulong, ulong, int);
   ~Display();
 };
+
+int main(int argc, char**argv) {
+  int n; Fl::args(argc,argv,n);
+  if (n >= argc) {
+    make_diskchooser();
+    reload_cb(0,0);
+    disk_chooser->show(argc,argv);
+  } else {
+    while (n < argc) Display::make(argv[n++], 0, 0, 0);
+  }
+  return Fl::run();
+}
 
 void disk_browser_cb(Fl_Browser*b, void*) {
   int i = b->value();
@@ -299,22 +301,47 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
 
   cancelled = 0;
 
+  FILE* f;
+  bool true_file;
   char buffer[1024];
-#ifdef __sgi
-  // sgi has the -x and -L switches somehow confused.  You cannot turn
-  // off descent into mount points (with -x) without turning on descent
-  // into symbolic links (at least for a stat()).  At DD all the symbolic
-  // links are on the /usr disk so I special case it:
-  if (!strcmp(path, "/usr"))
-    sprintf(buffer, "du -k%c \"%s\"", all ? 'a' : ' ', path);
-  else
-#endif
-    sprintf(buffer, DU_COMMAND"%c \"%s\"", all ? 'a' : ' ', path);
 
-  FILE* f = popen(buffer,"r");
-  if (!f) {
-    fl_alert("Problem running du!");
+  // First, determine if the path we're given is an actual file, and
+  // not a directory.  If it is a file, assume it's the output from a
+  // du command the user ran by hand.
+  struct stat stbuf;
+  if (stat(path, &stbuf) < 0) {
+    perror(path);
     return 0;
+  }
+  true_file = S_ISREG(stbuf.st_mode);
+
+  if (true_file) {
+    // It *is* a regular file.  Just fopen it.
+    f = fopen(path, "r");
+    if (!f) {
+      fl_alert("Could not read %s!", path);
+      return 0;
+    }
+
+  } else {
+    // It's a directory; popen a du command starting at that directory.
+    
+#ifdef __sgi
+    // sgi has the -x and -L switches somehow confused.  You cannot turn
+    // off descent into mount points (with -x) without turning on descent
+    // into symbolic links (at least for a stat()).  At DD all the symbolic
+    // links are on the /usr disk so I special case it:
+    if (!strcmp(path, "/usr"))
+      sprintf(buffer, "du -k%c \"%s\"", all ? 'a' : ' ', path);
+    else
+#endif
+      sprintf(buffer, DU_COMMAND"%c \"%s\"", all ? 'a' : ' ', path);
+    
+    f = popen(buffer,"r");
+    if (!f) {
+      fl_alert("Problem running du!");
+      return 0;
+    }
   }
 
   if (!wait_window) make_wait_window();
@@ -350,14 +377,23 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
     while (isspace(*p)) p++;
 
     // split the path into parts:
-    // the first part of path must match pathname (which may have slashes):
-    const char* r = path;
-    while (*r && *p == *r) {p++; r++;}
-    if (*r == '/') r++;
-    if (*r) {
-      fprintf(stderr,"Unexpected path from du: %s\n", buffer);
-      continue;
+    if (!true_file) {
+      // the first part of path must match pathname (which may have
+      // slashes):
+      const char* r = path;
+      while (*r && *p == *r) {p++; r++;}
+      if (*r == '/') r++;
+      if (*r) {
+	fprintf(stderr,"Unexpected path from du: %s\n", buffer);
+	continue;
+      }
+    } else {
+      // If we're just reading this from some external du process
+      // output, we don't know what the first part of the path will
+      // be, although it often starts with a dot that we can ignore.
+      if (*p == '.') p++;
     }
+    
     if (*p == '/') p++;
     int newdepth = 0;
     const char* parts[MAXDEPTH];
@@ -407,13 +443,24 @@ Display* Display::make(const char* path, ulong used, ulong total, int all) {
     Fl::check();
     if (cancelled) {
       delete_tree(root);
-      pclose(f);
+      if (true_file) {
+	fclose(f);
+      } else {
+	pclose(f);
+      }
       wait_window->hide();
       return 0;
     }
   }
-  pclose(f);
+
+  if (true_file) {
+    fclose(f);
+  } else {
+    pclose(f);
+  }
   wait_window->hide();
+
+  for (int j = currentdepth; j > 0; j--) fix_tree(lastnode[j]);
 
   if (used > runningtotal) {
     // add a dummy node for missing stuff (probably permission denied errors):
@@ -461,8 +508,8 @@ void Display::draw_tree(Node* n, int column, ulong row, double scale) {
       } else if (H > 10) {
 	fl_draw(n->name, X, Y, W, H, FL_ALIGN_CENTER);
       }
-      draw_tree(n->child, column+1, row, scale);
     }
+      draw_tree(n->child, column+1, row, scale);
     if (n == current_root) return;
     row += n->size;
   }
