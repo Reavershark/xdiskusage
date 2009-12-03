@@ -32,7 +32,7 @@ const char* copyright =
 # define DF_COMMAND "/bin/df -k"
 # define DU_COMMAND "/bin/du -kd"
 #else // linux and irix
-# define DF_COMMAND "df -k"
+# define DF_COMMAND "df -k -x usbfs -x tmpfs"
 # define DU_COMMAND "du -kx"
 #endif
 
@@ -102,8 +102,8 @@ void reload_cb(Fl_Button*, void*) {
     Disk* d = new Disk;
     d->mount = strdup(word[n-1]);
     d->total = strtoul(word[n-5],0,10);
-    d->used=strtoul(word[n-4],0,10);
-    d->avail=strtoul(word[n-3],0,10);
+    d->used  = strtoul(word[n-4],0,10);
+    d->avail = strtoul(word[n-3],0,10);
     *pointer = d;
     d->next = 0;
     pointer = &d->next;
@@ -148,7 +148,7 @@ void reload_cb(Fl_Button*, void*) {
 Fl_Window *copyright_window;
 void copyright_cb(Fl_Button*, void*) {
   if (!copyright_window) {
-    copyright_window = new Fl_Window(400,270,"about xdiskusage");
+    copyright_window = new Fl_Window(400,270,"About xdiskusage");
     copyright_window->color(FL_WHITE);
     Fl_Box *b = new Fl_Box(10,0,380,270,copyright);
 #ifdef FL_NORMAL_SIZE
@@ -249,23 +249,21 @@ int main(int argc, char**argv) {
 "xdiskusage		display browser of disks to run du on\n"
 "xdiskusage directory...	run du on each named directory\n"
 "xdiskusage file...	assume the file contains du output\n"
-"du ... | xdiskusage	pipe du output to xdiskusage\n"
+"du ... | xdiskusage -	pipe du output to xdiskusage\n"
 " -a	show all files\n"
 " -q	(quiet) don't show the progress slider\n"
 "%s\n"
 " -help\n", Fl::help);
 	return 1;
+      } else {
+	// plain "-" indicates pipe
+	argv[n] = 0;
       }
     }
     while (n < argc) {
       OutputWindow* d = OutputWindow::make(argv[n++]);
       if (d) d->show(argc,argv);
     }
-  } else if (!isatty(0) && (n=getc(stdin))>=0) {
-    ungetc(n,stdin);
-    // test for pipe, if so read stdin:
-    OutputWindow* d = OutputWindow::make(0);
-    if (d) d->show(argc,argv);
   } else {
     // normal gui:
     make_diskchooser();
@@ -1006,7 +1004,7 @@ Node* OutputWindow::sort(Node* n, int (*compare)(const Node*, const Node*)) {
 void OutputWindow::sort_cb(Fl_Widget* o, void*v) {
   OutputWindow* d = (OutputWindow*)(o->window());
   int (*compare)(const Node*, const Node*);
-  switch ((int)v) {
+  switch ((char)(long)v) {
   case 's': compare = largestfirst; break;
   case 'r': compare = smallestfirst; break;
   case 'a': compare = alphabetical; break;
@@ -1019,7 +1017,7 @@ void OutputWindow::sort_cb(Fl_Widget* o, void*v) {
 
 void OutputWindow::columns_cb(Fl_Widget* o, void*v) {
   OutputWindow* d = (OutputWindow*)(o->window());
-  int n = (int)v;
+  int n = (int)(long)v;
   ::ncols = n;
   if (n == d->ncols) return;
   if (d->current_depth > d->root_depth+n-1) {
@@ -1083,7 +1081,7 @@ void OutputWindow::print_tree(FILE*f,Node* n, int column, ull row,
 
 #if FL_MAJOR_VERSION > 1
 static void ok_cb(Fl_Widget* w, void*) {
-  w->window()->set_value();
+  w->window()->set();
   w->window()->hide();
 }
 #endif

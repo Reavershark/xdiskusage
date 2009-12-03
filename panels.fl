@@ -12,7 +12,7 @@ Function {make_diskchooser()} {open
     xywh {192 212 404 252} resizable visible
   } {
     Fl_Button {} {
-      label reload
+      label Reload
       callback reload_cb
       xywh {290 10 65 20}
     }
@@ -22,32 +22,32 @@ Function {make_diskchooser()} {open
       xywh {365 10 25 20} labelsize 18
     }
     Fl_Browser disk_browser {
-      label {Pick a disk:}
+      label {Select a file system:}
       callback disk_browser_cb
       xywh {15 30 375 150} type Hold align 5 resizable
       code0 {static int widths[] = {200,0};}
       code1 {o->column_widths(widths);}
     }
     Fl_Input disk_input {
-      label {Or type pathname in and hit Enter:}
+      label {[OR] Enter a full path:}
       callback disk_input_cb
       xywh {15 200 335 25} align 5 when 10
       code0 {o->value("/");}
     }
     Fl_Button {} {
       label browser
-      callback {const char* c = fl_file_chooser("Directory:", 0, disk_input->value());
+      callback {const char* c = fl_file_chooser("Folder", 0, disk_input->value());
 if (c) disk_input->value(c);}
       xywh {350 200 40 25} labelsize 8
       code0 {\#include <FL/Fl_File_Chooser.H>}
     }
     Fl_Check_Button {} {
-      label {measure directories only}
-      xywh {15 225 185 25} type Radio down_box DIAMOND_DOWN_BOX value 1
+      label {Measure folders only}
+      xywh {15 225 185 25} type Radio down_box DIAMOND_DOWN_BOX
     }
     Fl_Check_Button all_files_button {
-      label {measure all files} selected
-      xywh {190 225 145 25} type Radio down_box DIAMOND_DOWN_BOX
+      label {Measure every file} selected
+      xywh {190 225 145 25} type Radio down_box DIAMOND_DOWN_BOX value 1
     }
   }
 } 
@@ -58,7 +58,7 @@ Function {make_wait_window()} {open
     xywh {362 558 229 100} resizable hotspot modal visible
   } {
     Fl_Slider wait_slider {
-      label {Reading disk:}
+      label {Scanning ...}
       xywh {10 25 205 25} type {Horz Fill} color 12 selection_color 47 align 5 resizable
       code0 {o->set_output();}
     }

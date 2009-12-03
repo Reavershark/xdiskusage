@@ -19,14 +19,14 @@ Fl_Window* make_diskchooser() {
   Fl_Window* w;
   { Fl_Window* o = disk_chooser = new Fl_Window(404, 252, "Disk Usage Display");
     w = o;
-    { Fl_Button* o = new Fl_Button(290, 10, 65, 20, "reload");
+    { Fl_Button* o = new Fl_Button(290, 10, 65, 20, "Reload");
       o->callback((Fl_Callback*)reload_cb);
     }
     { Fl_Button* o = new Fl_Button(365, 10, 25, 20, "\251");
       o->labelsize(18);
       o->callback((Fl_Callback*)copyright_cb);
     }
-    { Fl_Browser* o = disk_browser = new Fl_Browser(15, 30, 375, 150, "Pick a disk:");
+    { Fl_Browser* o = disk_browser = new Fl_Browser(15, 30, 375, 150, "Select a file system:");
       o->type(2);
       o->callback((Fl_Callback*)disk_browser_cb);
       o->align(FL_ALIGN_TOP_LEFT);
@@ -34,7 +34,7 @@ Fl_Window* make_diskchooser() {
       static int widths[] = {200,0};
       o->column_widths(widths);
     }
-    { Fl_Input* o = disk_input = new Fl_Input(15, 200, 335, 25, "Or type pathname in and hit Enter:");
+    { Fl_Input* o = disk_input = new Fl_Input(15, 200, 335, 25, "[OR] Enter a full path:");
       o->callback((Fl_Callback*)disk_input_cb);
       o->align(FL_ALIGN_TOP_LEFT);
       o->when(FL_WHEN_ENTER_KEY_ALWAYS);
@@ -44,14 +44,14 @@ Fl_Window* make_diskchooser() {
       o->labelsize(8);
       o->callback((Fl_Callback*)cb_browser);
     }
-    { Fl_Check_Button* o = new Fl_Check_Button(15, 225, 185, 25, "measure directories only");
+    { Fl_Check_Button* o = new Fl_Check_Button(15, 225, 185, 25, "Measure folders only");
       o->type(102);
-      o->down_box(FL_DIAMOND_DOWN_BOX);
-      o->value(1);
+      o->box(FL_DIAMOND_DOWN_BOX);
     }
-    { Fl_Check_Button* o = all_files_button = new Fl_Check_Button(190, 225, 145, 25, "measure all files");
+    { Fl_Check_Button* o = all_files_button = new Fl_Check_Button(190, 225, 145, 25, "Measure every file");
       o->type(102);
-      o->down_box(FL_DIAMOND_DOWN_BOX);
+      o->box(FL_DIAMOND_DOWN_BOX);
+      o->value(1);
     }
     o->end();
   }
@@ -67,7 +67,7 @@ Fl_Window* make_wait_window() {
   { Fl_Window* o = wait_window = new Fl_Window(229, 100);
     w = o;
     w->hotspot(o);
-    { Fl_Slider* o = wait_slider = new Fl_Slider(10, 25, 205, 25, "Reading disk:");
+    { Fl_Slider* o = wait_slider = new Fl_Slider(10, 25, 205, 25, "Scanning ...");
       o->type(3);
       o->color(12);
       o->selection_color(47);
@@ -114,7 +114,6 @@ Fl_Window* make_print_panel() {
     w = o;
     w->hotspot(o);
     { Fl_Box* o = new Fl_Box(10, 5, 85, 25, "Print to:");
-      o->labelfont(1);
       o->labelsize(18);
       o->align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE);
     }
@@ -139,12 +138,10 @@ Fl_Window* make_print_panel() {
       o->align(FL_ALIGN_LEFT);
       { Fl_Check_Button* o = print_portrait_button = new Fl_Check_Button(10, 90, 80, 25, "portrait");
         o->type(102);
-        o->down_box(FL_DIAMOND_DOWN_BOX);
         o->value(1);
       }
       { Fl_Check_Button* o = new Fl_Check_Button(90, 90, 100, 25, "landscape");
         o->type(102);
-        o->down_box(FL_DIAMOND_DOWN_BOX);
       }
       o->end();
     }
@@ -152,12 +149,10 @@ Fl_Window* make_print_panel() {
       o->align(FL_ALIGN_LEFT);
       { Fl_Check_Button* o = fill_page_button = new Fl_Check_Button(10, 115, 150, 25, "reshape to fill page");
         o->type(102);
-        o->down_box(FL_DIAMOND_DOWN_BOX);
         o->value(1);
       }
       { Fl_Check_Button* o = new Fl_Check_Button(160, 115, 175, 25, "same shape as window");
         o->type(102);
-        o->down_box(FL_DIAMOND_DOWN_BOX);
       }
       o->end();
     }
