@@ -36,7 +36,7 @@ Function {make_diskchooser()} {open
     }
     Fl_Button {} {
       label browser
-      callback {const char* c = fl_file_chooser("Folder", 0, disk_input->value());
+      callback {const char* c = fl_file_chooser("Folder", "*/", disk_input->value());
 if (c) disk_input->value(c);}
       xywh {350 200 40 25} labelsize 8
       code0 {\#include <FL/Fl_File_Chooser.H>}
