@@ -2,7 +2,7 @@
 
 const char* copyright = 
 "xdiskusage version 1.49\n"
-"Copyright (C) 2004 Bill Spitzak\n"
+"Copyright (C) 2014 Bill Spitzak\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"
 "This program is free software; you can redistribute it and/or modify "
