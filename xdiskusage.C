@@ -73,13 +73,34 @@ struct Disk {
 };
 
 Disk* firstdisk;
+int quiet;
+
+void alert(const char* message)
+{ if (quiet) fprintf(stderr, "%s\n", message);
+  else fl_alert("%s", message);
+}
+
+void alert(const char* fmt, const char* s1)
+{ if (quiet) {fprintf(stderr, fmt, s1); fputc('\n', stderr);}
+  else fl_alert(fmt, s1);
+}
+
+void alert(const char* fmt, const char* s1, const char* s2)
+{ if (quiet) {fprintf(stderr, fmt, s1, s2); fputc('\n', stderr);}
+  else fl_alert(fmt, s1, s2);
+}
+
+void alert(const char* fmt, const char* s1, unsigned n, const char* s2)
+{ if (quiet) {fprintf(stderr, fmt, s1, n, s2); fputc('\n', stderr);}
+  else fl_alert(fmt, s1, n, s2);
+}
 
 // Run 'df' and create a list of Disk structures, fill in browser:
 void reload_cb(Fl_Button*, void*) {
   FILE* f = popen(DF_COMMAND, "r");
   if (!f) {
-    fprintf(stderr,"Can't run df, %s\n", strerror(errno));
-    exit(1);
+    alert("Can't run df, %s\n", strerror(errno));
+    return;
   }
   Disk** pointer = &firstdisk;
   for (;;) {
@@ -111,9 +132,9 @@ void reload_cb(Fl_Button*, void*) {
   pclose(f);
 
   if (!firstdisk) {
-    fl_alert("Something went wrong with df, no disks found.");
+    alert("Something went wrong with df, no disks found.");
   } else {
-    disk_browser->clear();
+    if (disk_browser) disk_browser->clear();
   }
 
   for (Disk* d = firstdisk; d; d = d->next) {
@@ -139,12 +160,14 @@ void reload_cb(Fl_Button*, void*) {
 #else
     sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
 #endif
-    disk_browser->add(buf);
+    if (disk_browser) disk_browser->add(buf);
   }
-  disk_browser->position(0);
+  if (disk_browser) {
+    disk_browser->position(0);
 #if FL_MAJOR_VERSION > 1
-  disk_browser->deselect();
+    disk_browser->deselect();
 #endif
+  }
 }
 
 Fl_Window *copyright_window;
@@ -216,10 +239,12 @@ public:
   static void print_cb(Fl_Widget* o, void*);
   static Node* sort(Node* n, int (*compare)(const Node*, const Node*));
   static OutputWindow* make(const char*, Disk* = 0);
+  static void print_file(OutputWindow* d, FILE *f, bool portrait, bool fill);
   ~OutputWindow();
 };
 
-int all_files, quiet;
+int all_files;
+char *outfile;
 int arg_cb(int, char **argv, int &i) {
   const char *s = argv[i];
   if (!s) return 0;
@@ -227,7 +252,11 @@ int arg_cb(int, char **argv, int &i) {
   for (s++; *s; s++) {
     if (*s == 'a') all_files = 1;
     else if (*s == 'q') quiet = 1;
-    else return 0;
+    else if (*s == 'o' && argv[i+1]) { 
+     outfile = strdup(argv[i+1]);
+     i++;
+     quiet = 1;
+    } else return 0;
   }
   i++;
   return 1;
@@ -252,8 +281,9 @@ int main(int argc, char**argv) {
 "xdiskusage directory...	run du on each named directory\n"
 "xdiskusage file...	assume the file contains du output\n"
 "du ... | xdiskusage -	pipe du output to xdiskusage\n"
-" -a	show all files\n"
-" -q	(quiet) don't show the progress slider\n"
+" -a		show all files\n"
+" -o file	immediately send postscript output to <file> (- means stdout)\n"
+" -q		(quiet) don't show the progress slider\n"
 "%s\n"
 " -help\n", Fl::help);
 	return 1;
@@ -264,7 +294,21 @@ int main(int argc, char**argv) {
     }
     while (n < argc) {
       OutputWindow* d = OutputWindow::make(argv[n++]);
-      if (d) d->show(argc,argv);
+      if (outfile) {
+        if (!d) return 1;
+        FILE *f;
+        if (strcmp(outfile,"-")==0)
+          f = stdout;
+        else
+          f = fopen(outfile, "w");
+        if (!f) {
+          perror("Cannot open output file");
+          return 1;
+        }
+        d->print_file(d, f, true, true);
+        return 0;
+      }
+      else if (d) d->show(argc,argv);
     }
   } else {
     // normal gui:
@@ -404,7 +448,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 	int j = readlink(pathbuf, p, 1024-(p-pathbuf));
 	if (j < 0) {
 	  if (errno != EINVAL) {
-	    fl_alert("%s: no such file", pathbuf);
+	    alert("%s: no such file", pathbuf);
 	    return 0;
 	  }
 	  break;
@@ -413,19 +457,28 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 	p[j] = 0;
 	path = pathbuf;
       }
+      // See if the path we were given is really a mountpoint, in which case
+      // we can figure out freespace.
+      reload_cb(0,0);
+      for (Disk* d=firstdisk; d; d=d->next) {
+        if(strcmp(d->mount, path) == 0) {
+          disk = d;
+          break;
+        }
+      }
     }
     // First, determine if the path we're given is an actual file, and
     // not a directory.  If it is a file, assume it's the output from a
     // du command the user ran by hand.
     struct stat stbuf;
     if (stat(path, &stbuf) < 0) {
-      fl_alert("%s : %s", path, strerror(errno));
+      alert("%s : %s", path, strerror(errno));
       return 0;
     }
     true_file = S_ISREG(stbuf.st_mode);
     f = fopen(path, "r");
     if (!f) {
-      fl_alert("%s : %s", path, strerror(errno));
+      alert("%s : %s", path, strerror(errno));
       return 0;
     }
   }
@@ -447,22 +500,24 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     
     f = popen(buffer,"r");
     if (!f) {
-      fl_alert("Problem running '%s' : %s", buffer, strerror(errno));
+      alert("Problem running '%s' : %s", buffer, strerror(errno));
       return 0;
     }
   }
 
-  if (!wait_window) make_wait_window();
-  wait_slider->type(disk ? FL_HOR_FILL_SLIDER : FL_HOR_SLIDER);
-  wait_slider->value(0.0);
+  if (!quiet) {
+    if (!wait_window) make_wait_window();
+    wait_slider->type(disk ? FL_HOR_FILL_SLIDER : FL_HOR_SLIDER);
+    wait_slider->value(0.0);
 #if FL_MAJOR_VERSION > 1
-  wait_slider->box(FL_DOWN_BOX);
-  wait_slider->color(0);
-  wait_slider->selection_color(12);
+    wait_slider->box(FL_DOWN_BOX);
+    wait_slider->color(0);
+    wait_slider->selection_color(12);
 #endif
-  if (!quiet && !(path && true_file)) {
-    wait_window->show();
-    while (wait_window->damage()) Fl::wait(.1);
+    if (!(path && true_file)) {
+      wait_window->show();
+      while (wait_window->damage()) Fl::wait(.1);
+    }
   }
 
   Node* root = new Node;
@@ -496,7 +551,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     // FIXME: don't limit line length to 2048
     if (!fgets(buffer, 2048, f)) {
       if (!runningtotal) {
-	fl_alert("%s: empty or bad file", path ? path : "stdin");
+	alert("%s: empty or bad file", path ? path : "stdin");
 	cancelled = 1;
 	continue;
       }
@@ -504,21 +559,19 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     }
 
     // If the line was longer than the maximum, warn about it,
-    // and discard the rest of the line.
+    // and discard the line.
     size_t len = strlen (buffer);
-    if (buffer[len-1] != '\n')
-      {
-	fprintf (stderr, "%s:%u: line too long, skipping it\n",
-		 path ? path : "stdin", (unsigned)line_no);
-	// Read until end of line or EOF.
-	while (1)
-	  {
-	    char c = getc (f);
-	    if (c == '\n' || c == EOF)
-	      break;
-	  }
-	continue;
+    if (buffer[len-1] != '\n') {
+      fprintf (stderr, "%s:%u: line too long, skipping it\n",
+               path ? path : "stdin", (unsigned)line_no);
+      // Read until end of line or EOF.
+      while (1) {
+        char c = getc (f);
+        if (c == '\n' || c == EOF)
+          break;
       }
+      continue;
+    }
 
     // null-terminate the line:
     char* p = buffer+len;
@@ -527,8 +580,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     ull size = strtoull(buffer, &p, 10);
     if (!isspace(*p) || p == buffer) {
       if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
-      fl_alert("%s:%u: does not look like du output: %s",
-	       path ? path : "stdin", (unsigned)line_no, p);
+      alert("%s:%u: does not look like du output: %s",
+            path ? path : "stdin", (unsigned)line_no, p);
       cancelled = 1;
       continue;
     }
@@ -592,6 +645,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
   } else {
     pclose(f);
   }
+  if (!quiet)
   wait_window->hide();
 
   // remove all the common roots that were not given sizes by du:
@@ -1113,21 +1167,30 @@ void OutputWindow::print_cb(Fl_Widget* o, void*) {
   } else {
     f = popen(print_command_input->value(), "w");
   }
+  print_file(d, f, print_portrait_button->value(), fill_page_button->value());
+  if (print_file_button->value()) {
+    fclose(f);
+  } else {
+    pclose(f);
+  }
+}
+
+void OutputWindow::print_file(OutputWindow* d, FILE *f, bool portrait, bool fill) {
   if (!f) {
-    fl_alert("Can't open printer output stream");
+    alert("Can't open printer output stream");
     return;
   }
   fprintf(f, "%%!PS-Adobe-2.0\n");
   int W = 7*72+36;
   int H = 10*72;
-  if (!print_portrait_button->value()) {int t = W; W = H; H = t;}
+  if (!portrait) {int t = W; W = H; H = t;}
   int X = 0;
   int Y = 0;
-  if (!fill_page_button->value()) {
+  if (!fill) {
     if (d->w()*H > d->h()*W) {int t = d->h()*W/d->w(); Y = (H-t)/2; H = t;}
     else {int t = d->w()*H/d->h(); X = (W-t)/2; W = t;}
   }
-  if (print_portrait_button->value())
+  if (portrait)
     fprintf(f, "%%%%BoundingBox: 36 36 %d %d\n",36+X+W,36+Y+H);
   else
     fprintf(f, "%%%%BoundingBox: 36 36 %d %d\n",36+Y+H,36+X+W);
@@ -1136,18 +1199,13 @@ void OutputWindow::print_cb(Fl_Widget* o, void*) {
   fprintf(f, "/Helvetica findfont 10 scalefont setfont\n");
   fprintf(f, "/fitshow {gsave 1 index stringwidth pop div dup 1 lt {dup sqrt scale} {pop} ifelse show grestore} bind def\n");
   fprintf(f, "0 setlinewidth\n");
-  if (print_portrait_button->value())
+  if (portrait)
     fprintf(f, "%d %d translate\n", 36+X, 36+Y+H);
   else
     fprintf(f, "%d %d translate 90 rotate\n", 36+Y, 36+X);
   double scale = (double)H/d->current_root->size;
   d->print_tree(f, d->current_root, 0, 0, scale, 0, W, H);
   fprintf(f,"showpage\npagelevel restore\n%%%%EOF\n");
-  if (print_file_button->value()) {
-    fclose(f);
-  } else {
-    pclose(f);
-  }
 }
 
 // End of xdiskusage.C
