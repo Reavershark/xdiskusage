@@ -55,7 +55,7 @@ typedef unsigned long long ull;
 
 // turn number of K into user-friendly text:
 const char* formatk(ull k) {
-  static char buffer[10];
+  static char buffer[32];
   if (k >= 1024*1024*1024) sprintf(buffer,"%.4gT",(double)k/(1024*1024*1024));
   else if (k >= 1024*1024) sprintf(buffer,"%.4gG",(double)k/(1024*1024));
   else if (k >= 1024) sprintf(buffer,"%.4gM",(double)k/1024);
@@ -126,6 +126,8 @@ void reload_cb(Fl_Button*, void*) {
       pct = int((d->used*100.0)/sum+.5);
       if (!pct && d->used) pct = 1;
     }
+    const char* mount = d->mount;
+    if (strlen(mount) > 255) mount = d->mount + strlen(mount) - 255;
 #if FL_MAJOR_VERSION > 1
     static const char* labels[] = {"mounted at", "size", "usage", 0};
     static int widths[] = {-1, 50, 50, 0};
@@ -148,9 +150,9 @@ void reload_cb(Fl_Button*, void*) {
 Fl_Window *copyright_window;
 void copyright_cb(Fl_Button*, void*) {
   if (!copyright_window) {
-    copyright_window = new Fl_Window(400,270,"About xdiskusage");
+    copyright_window = new Fl_Window(400,360,"About xdiskusage");
     copyright_window->color(FL_WHITE);
-    Fl_Box *b = new Fl_Box(10,0,380,270,copyright);
+    Fl_Box *b = new Fl_Box(10,0,380,360,copyright);
 #ifdef FL_NORMAL_SIZE
     b->labelsize(12);
 #endif
@@ -386,7 +388,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 
   FILE* f;
   bool true_file;
-  char buffer[1024];
+  char buffer[2048];
   char pathbuf[1024];
 
   if (!path) {
@@ -402,8 +404,7 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
 	int j = readlink(pathbuf, p, 1024-(p-pathbuf));
 	if (j < 0) {
 	  if (errno != EINVAL) {
-	    strcat(pathbuf, ": no such file");
-	    fl_alert(pathbuf);
+	    fl_alert("%s: no such file", pathbuf);
 	    return 0;
 	  }
 	  break;
@@ -441,7 +442,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
       sprintf(buffer, "du -k%c \"%s\"", all_files ? 'a' : ' ', path);
     else
 #endif
-      sprintf(buffer, DU_COMMAND"%c \"%s\"", all_files ? 'a' : ' ', path);
+      snprintf(buffer, 2048,
+               DU_COMMAND"%c \"%s\"", all_files ? 'a' : ' ', path);
     
     f = popen(buffer,"r");
     if (!f) {
@@ -491,10 +493,10 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
       return 0;
     }
 
-    // FIXME: don't limit line length to 1024
-    if (!fgets(buffer, 1024, f)) {
+    // FIXME: don't limit line length to 2048
+    if (!fgets(buffer, 2048, f)) {
       if (!runningtotal) {
-	fl_alert("%s: empty or bad file", path ? path : "stdin", line_no);
+	fl_alert("%s: empty or bad file", path ? path : "stdin");
 	cancelled = 1;
 	continue;
       }
@@ -506,8 +508,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     size_t len = strlen (buffer);
     if (buffer[len-1] != '\n')
       {
-	fprintf (stderr, "%s:%d: line too long, skipping it\n",
-		 path ? path : "stdin", line_no);
+	fprintf (stderr, "%s:%u: line too long, skipping it\n",
+		 path ? path : "stdin", (unsigned)line_no);
 	// Read until end of line or EOF.
 	while (1)
 	  {
@@ -525,8 +527,8 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     ull size = strtoull(buffer, &p, 10);
     if (!isspace(*p) || p == buffer) {
       if (!*p || *p=='#') continue; // ignore blank lines or comments (?)
-      fl_alert("%s:%d: does not look like du output: %s",
-	       path ? path : "stdin", line_no, p);
+      fl_alert("%s:%u: does not look like du output: %s",
+	       path ? path : "stdin", (unsigned)line_no, p);
       cancelled = 1;
       continue;
     }
@@ -715,7 +717,7 @@ void OutputWindow::draw_tree(Node* n, int column, ull row, double scale, double 
 	int i,j; for (i = j = 0; i < 254;) {
 	  unsigned char c = (unsigned char)(n->name[j++]);
 	  if (!c) break;
-	  if (c < 32 || c>=127 && c < 0xA0 || c==255) c = '?';
+	  if (c < 32 || c==255) c = '?';
 	  buffer[i++] = c; if (c=='@' || c=='&') buffer[i++] = c;
 	}
 	snprintf(buffer+i, 256-i, "%c%s",
