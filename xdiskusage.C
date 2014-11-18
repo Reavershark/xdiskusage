@@ -1,7 +1,7 @@
 // xdiskusage.C
 
 const char* copyright = 
-"xdiskusage version 1.48\n"
+"xdiskusage version 1.49\n"
 "Copyright (C) 2004 Bill Spitzak\n"
 "Based on xdu by Phillip C. Dykstra\n"
 "\n"

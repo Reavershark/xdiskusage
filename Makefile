@@ -1,7 +1,7 @@
 SHELL=/bin/sh
 
 PROGRAM = xdiskusage
-VERSION = 1.48
+VERSION = 1.49
 
 CXXFILES = panels.C xdiskusage.C
 
@@ -18,6 +18,9 @@ all:	$(PROGRAM)
 
 $(PROGRAM) : $(OBJECTS)
 	$(CXX) $(LDFLAGS) -o $(PROGRAM) $(OBJECTS) $(LIBS) $(LDLIBS)
+
+configure: configure.in
+	autoconf
 
 makeinclude: configure
 	./configure
