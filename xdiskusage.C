@@ -56,10 +56,16 @@ typedef unsigned long long ull;
 // turn number of K into user-friendly text:
 const char* formatk(ull k) {
   static char buffer[32];
-  if (k >= 1024*1024*1024) sprintf(buffer,"%.4gT",(double)k/(1024*1024*1024));
-  else if (k >= 1024*1024) sprintf(buffer,"%.4gG",(double)k/(1024*1024));
-  else if (k >= 1024) sprintf(buffer,"%.4gM",(double)k/1024);
-  else sprintf(buffer,"%.0fK",(double)k);
+  int index = 0;
+  double dk = k;
+  while (dk >= 1024.0) {
+    index++;
+    dk /= 1024.0;
+  }
+  if (index)
+    sprintf(buffer, "%.4g%c", dk, "KMGTPEZY"[index]);
+  else
+    sprintf(buffer, "%dK", (int)k);
   return buffer;
 }
 
