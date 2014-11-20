@@ -1,7 +1,7 @@
 SHELL=/bin/sh
 
 PROGRAM = xdiskusage
-VERSION = 1.49
+VERSION = 1.50
 
 CXXFILES = panels.C xdiskusage.C
 
@@ -22,7 +22,7 @@ $(PROGRAM) : $(OBJECTS)
 configure: configure.in
 	autoconf
 
-makeinclude: configure
+makeinclude: configure makeinclude.in
 	./configure
 include makeinclude
 
@@ -79,3 +79,7 @@ OBJECTS_D = $(CXXFILES:.C=.do) $(CFILES:.c=.do)
 
 $(PROGRAM_D) : $(OBJECTS_D)
 	$(CXX) -o $(PROGRAM_D) $(OBJECTS_D) `fltk-config --ldflags`
+
+# Used to make the version that is gzipped and uploaded to web site
+static : $(OBJECTS)
+	$(CXX) -o $(PROGRAM) $(OBJECTS) `fltk-config --ldstaticflags`
