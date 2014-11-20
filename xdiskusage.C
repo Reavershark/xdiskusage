@@ -158,6 +158,11 @@ void reload_cb(Fl_Button*, void*) {
     }
     sprintf(buf, "@b;%s\t@n@r;%s\t@r;%2d%% \t", d->mount, formatk(d->total), pct);
 #else
+#if FL_MINOR_VERSION >= 3
+    static int widths[] = {280, 0};
+    if (d==firstdisk)
+      disk_browser->column_widths(widths);
+#endif
     sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
 #endif
     if (disk_browser) disk_browser->add(buf);
