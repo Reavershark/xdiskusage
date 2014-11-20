@@ -249,6 +249,7 @@ int arg_cb(int, char **argv, int &i) {
   const char *s = argv[i];
   if (!s) return 0;
   if (*s != '-') return 0;
+  if (!s[1]) return 0; // plain "-" for pipe
   for (s++; *s; s++) {
     if (*s == 'a') all_files = 1;
     else if (*s == 'q') quiet = 1;
