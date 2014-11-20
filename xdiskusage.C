@@ -149,21 +149,20 @@ void reload_cb(Fl_Button*, void*) {
     }
     const char* mount = d->mount;
     if (strlen(mount) > 255) mount = d->mount + strlen(mount) - 255;
-#if FL_MAJOR_VERSION > 1
-    static const char* labels[] = {"mounted at", "size", "usage", 0};
-    static int widths[] = {-1, 50, 50, 0};
+#if FL_MAJOR_VERSION > 1 || FL_MINOR_VERSION >= 3
+    static int widths[] = {0, 0, 0};
     if (d==firstdisk) {
+      if (widths[0] == 0) {
+        int n = disk_browser->textsize();
+        fl_font(disk_browser->textfont(), n);
+        widths[0] = fl_width("2.222Mn");
+        widths[1] = fl_width("00% n");
+      }
       disk_browser->column_widths(widths);
-      disk_browser->column_labels(labels);
     }
-    sprintf(buf, "@b;%s\t@n@r;%s\t@r;%2d%% \t", d->mount, formatk(d->total), pct);
+    sprintf(buf, "@r%s\t@r%d%% \t@b%s", formatk(d->total), pct, d->mount);
 #else
-#if FL_MINOR_VERSION >= 3
-    static int widths[] = {280, 0};
-    if (d==firstdisk)
-      disk_browser->column_widths(widths);
-#endif
-    sprintf(buf, "@b%s\t@r%s %2d%%", d->mount, formatk(d->total), pct);
+    sprintf(buf, "%s  %02d%%  %s", formatk(d->total), pct, d->mount);
 #endif
     if (disk_browser) disk_browser->add(buf);
   }
