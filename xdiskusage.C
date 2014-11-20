@@ -272,7 +272,7 @@ int main(int argc, char**argv) {
   Fl::set_color(FL_SELECTION_COLOR,0,0,128);
 #endif
   // Parse and -x switches understood by fltk:
-  int n; Fl::args(argc,argv,n, arg_cb);
+  int n; Fl::args(argc, argv, n, arg_cb);
   // Any remaining words are files/directories:
   if (n < argc) {
     if (argv[n][0] == '-') {
@@ -309,7 +309,7 @@ int main(int argc, char**argv) {
         d->print_file(d, f, true, true);
         return 0;
       }
-      else if (d) d->show(argc,argv);
+      else if (d) d->show();
     }
   } else {
     // normal gui:
@@ -758,7 +758,7 @@ void OutputWindow::draw_tree(Node* n, int column, ull row, double scale, double 
       fl_color(FL_WHITE);
       fl_rectf(X+1,Y+1,W-1,H-1);
       fl_color(FL_BLACK);
-      if (n->size*scale > 10) {
+      if (n->size*scale > 10 && n->name && n->name[0]) {
 	char buffer[256];
 #if FL_MAJOR_VERSION > 1
 	snprintf(buffer, 256, "%s%c%s", n->name,
