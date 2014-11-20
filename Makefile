@@ -17,7 +17,7 @@ OBJECTS = $(CXXFILES:.C=.o)
 all:	$(PROGRAM)
 
 $(PROGRAM) : $(OBJECTS)
-	$(CXX) $(LDFLAGS) -o $(PROGRAM) $(OBJECTS) $(LIBS) $(LDLIBS)
+	$(CXX) -o $(PROGRAM) $(OBJECTS) `fltk-config --ldflags`
 
 configure: configure.in
 	autoconf
@@ -78,4 +78,4 @@ OBJECTS_D = $(CXXFILES:.C=.do) $(CFILES:.c=.do)
 	$(CC) $(CFLAGS_D) -c -o $@ $<
 
 $(PROGRAM_D) : $(OBJECTS_D)
-	$(CXX) $(LDFLAGS_D) -o $(PROGRAM_D) $(OBJECTS_D) $(LIBS) $(LDLIBS)
+	$(CXX) -o $(PROGRAM_D) $(OBJECTS_D) `fltk-config --ldflags`
