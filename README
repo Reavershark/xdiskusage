@@ -1,4 +1,4 @@
-xdiskusage Version 1.46
+xdiskusage Version 1.50
 
 ----------------------------------------------------------------
 How to compile xdiskusage:
@@ -29,14 +29,11 @@ switch, if given, is passed to "du" to cause all files to be measured.
 
 Typing "xdiskusage file" where "file" is not a folder makes
 xdiskusage parse that file as though it was "du" output and display
-the result.
+the result. You can use "-" to read from stdin, thus allowing you
+to pipe a du command to the display, for instance "du -k . | xdiskusage".
 
 You can type several file and folder names and get several display
 windows.
-
-If no files are named, you can pipe the output from another program to
-xdiskusage. If stdin is not a terminal xdiskusage will parse it as "du"
-output and display the result. For instance "du -k . | xdiskusage".
 
 Typing just "xdiskusage" brings up the disk browser described here:
 
