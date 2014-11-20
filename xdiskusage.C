@@ -327,11 +327,10 @@ int main(int argc, char**argv) {
 void disk_browser_cb(Fl_Browser*b, void*) {
   int i = b->value();
   //printf("disk browser cb %d\n", i);
-#if FL_MAJOR_VERSION > 1
-  if (i < 0) return;
-#else
+#if FL_MAJOR_VERSION < 2
   i--;
 #endif
+  if (i < 0) return;
   Disk* d;
   for (d = firstdisk; i > 0; i--) d = d->next;
   all_files = all_files_button->value();
