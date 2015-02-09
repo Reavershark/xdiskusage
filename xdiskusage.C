@@ -139,9 +139,14 @@ void reload_cb(Fl_Button*, void*) {
 
   if (!firstdisk) {
     alert("Something went wrong with df, no disks found.");
-  } else {
-    if (disk_browser) disk_browser->clear();
+    return; // leave browser as-is
   }
+
+  // There is no browser widget if a file was given on the command line
+  if (!disk_browser)
+    return;
+
+  disk_browser->clear();
 
   for (Disk* d = firstdisk; d; d = d->next) {
     char buf[512];
@@ -157,7 +162,7 @@ void reload_cb(Fl_Button*, void*) {
     if (strlen(mount) > 255) mount = d->mount + strlen(mount) - 255;
 #if FL_MAJOR_VERSION > 1 || FL_MINOR_VERSION >= 3
     static int widths[] = {0, 0, 0};
-    if (disk_browser && d==firstdisk) {
+    if (d==firstdisk) {
       if (widths[0] == 0) {
         int n = disk_browser->textsize();
         fl_font(disk_browser->textfont(), n);
@@ -170,14 +175,12 @@ void reload_cb(Fl_Button*, void*) {
 #else
     sprintf(buf, "%s  %02d%%  %s", formatk(d->total), pct, d->mount);
 #endif
-    if (disk_browser) disk_browser->add(buf);
+    disk_browser->add(buf);
   }
-  if (disk_browser) {
-    disk_browser->position(0);
+  disk_browser->position(0);
 #if FL_MAJOR_VERSION > 1
-    disk_browser->deselect();
+  disk_browser->deselect();
 #endif
-  }
 }
 
 Fl_Window *copyright_window;
