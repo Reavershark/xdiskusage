@@ -157,7 +157,7 @@ void reload_cb(Fl_Button*, void*) {
     if (strlen(mount) > 255) mount = d->mount + strlen(mount) - 255;
 #if FL_MAJOR_VERSION > 1 || FL_MINOR_VERSION >= 3
     static int widths[] = {0, 0, 0};
-    if (d==firstdisk) {
+    if (disk_browser && d==firstdisk) {
       if (widths[0] == 0) {
         int n = disk_browser->textsize();
         fl_font(disk_browser->textfont(), n);
