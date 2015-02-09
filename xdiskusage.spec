@@ -6,7 +6,7 @@
 
 Summary:    Grapically displays the amount of disks used for by each subdirectory.
 Name:       xdiskusage
-Version:    1.50
+Version:    1.51
 Release:    1
 Source0:    http://xdiskusage.sourceforge.net/%{name}-%{version}.tgz
 Copyright:  GPL
