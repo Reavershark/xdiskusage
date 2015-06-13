@@ -489,10 +489,12 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
       return 0;
     }
     true_file = S_ISREG(stbuf.st_mode);
-    f = fopen(path, "r");
-    if (!f) {
-      alert("%s : %s", path, strerror(errno));
-      return 0;
+    if (true_file) {
+      f = fopen(path, "r");
+      if (!f) {
+	alert("%s : %s", path, strerror(errno));
+	return 0;
+      }
     }
   }
 
