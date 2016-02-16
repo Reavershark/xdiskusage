@@ -28,10 +28,13 @@ const char* copyright =
 #elif defined(__bsdi__)
 # define DF_COMMAND "df"
 # define DU_COMMAND "du -x"
+#elif defined(__FreeBSD__)
+# define DF_COMMAND "df -k -t noprocfs,devfs,fdescfs"
+# define DU_COMMAND "du -kx"
 #elif defined(SVR4) || defined(__sun)
 # define DF_COMMAND "/bin/df -k"
 # define DU_COMMAND "/bin/du -kd"
-#else // linux and irix
+#else // linux
 # define DF_COMMAND "df -k -x usbfs -x tmpfs"
 # define DU_COMMAND "du -kx"
 #endif
