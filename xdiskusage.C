@@ -36,7 +36,7 @@ const char* copyright =
 # define DU_COMMAND "/bin/du -kd"
 #else // linux
 # define DF_COMMAND "df -k -x usbfs -x tmpfs"
-# define DU_COMMAND "du -kx"
+# define DU_COMMAND "sh -c 'find "
 #endif
 
 #include <stdio.h>
@@ -66,9 +66,9 @@ const char* formatk(ull k) {
     dk /= 1024.0;
   }
   if (index)
-    sprintf(buffer, "%.4g%c", dk, "KMGTPEZY"[index]);
+    sprintf(buffer, "%.4g%c", dk, "BKMGTPEZ"[index]);
   else
-    sprintf(buffer, "%dK", (int)k);
+    sprintf(buffer, "%dB", (int)k);
   return buffer;
 }
 
@@ -510,11 +510,11 @@ OutputWindow* OutputWindow::make(const char* path, Disk* disk) {
     // into symbolic links (at least for a stat()).  At DD all the symbolic
     // links are on the /usr disk so I special case it:
     if (!strcmp(path, "/usr"))
-      sprintf(buffer, "du -k%c \"%s\"", all_files ? 'a' : ' ', path);
+      sprintf("du -k%c \"%s\"", all_files ? 'a' : ' ', path);
     else
 #endif
       snprintf(buffer, 2048,
-               DU_COMMAND"%c \"%s\"", all_files ? 'a' : ' ', path);
+               DU_COMMAND" \"%s\" -exec ./vmtouch/vmtouch -u {} \\;'", path);
     
     f = popen(buffer,"r");
     if (!f) {
